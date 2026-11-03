@@ -1,0 +1,85 @@
+name: Experimental Waxum Lite (never auto-deploy)
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/waxum-lite-experiment.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  lite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    container:
+      image: ubuntu:20.04
+      options: --user root
+    steps:
+      - name: Build prerequisites in glibc 2.31 container
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc g++ make pkg-config cmake libssl-dev libsqlite3-dev clang llvm binutils perl python3 file
+          ldd --version | head -1
+          test "$(ldd --version | head -1 | grep -o '[0-9]\+\.[0-9]\+$')" = '2.31'
+      - name: Verify Waxum v0.16.1 source
+        run: |
+          git clone --depth 1 --branch v0.16.1 https://github.com/imtaqin/waxum.git waxum-src
+          test "$(git -C waxum-src rev-parse HEAD)" = '851bedf3189bda742433ef57bc06e75be590860b'
+      - name: Install pinned toolchain
+        run: |
+          curl --fail --silent --show-error --location --retry 3 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly-2026-04-05
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Disable unused full native WhatsApp VoIP relay and native opus
+        working-directory: waxum-src
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest=Path('Cargo.toml')
+          raw=manifest.read_text()
+          before='default-features = true, features = ["voip", "tracing"]'
+          after='default-features = false, features = ["sqlite-storage", "sqlite-storage-bundled", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal", "voip-encoded", "tracing"]'
+          if raw.count(before)!=1: raise SystemExit('Unexpected upstream manifest, aborting')
+          manifest.write_text(raw.replace(before,after))
+          print("Experimental: disable native VoIP transport and libopus; preserve encoded-call API and core QR/messaging.")
+          PY
+      - name: Compile Lite candidate, not suitable for production yet
+        working-directory: waxum-src
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+          CARGO_BUILD_JOBS: '3'
+          CARGO_NET_RETRY: '4'
+          RUSTFLAGS: '-C target-cpu=x86-64'
+        run: |
+          "$HOME/.cargo/bin/cargo" build --release --locked
+          test -f target/release/waxum
+      - name: Verify Cloudways ELF ABI and minimum REST baseline
+        working-directory: waxum-src
+        run: |
+          file target/release/waxum | grep -q 'ELF 64-bit.*x86-64'
+          readelf -W --version-info target/release/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > /tmp/lite-glibc-versions
+          test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 /tmp/lite-glibc-versions)" | sort -V | tail -1)" = 'GLIBC_2.31'
+          target/release/waxum --help > /tmp/lite-help.txt
+          grep -q 'WhatsApp REST API Gateway' /tmp/lite-help.txt
+          file target/release/waxum
+      - name: Package candidate for manual security and QR regression only
+        working-directory: waxum-src
+        run: |
+          mkdir -p ../out
+          tar -C target/release -czf ../out/waxum-lite-v0.16.1-cloudways-glibc231-amd64.tar.gz waxum
+          sha256sum ../out/*.tar.gz > ../out/checksums.txt
+          {
+            echo 'EXPERIMENTAL=true'
+            echo 'DEPLOYMENT_ALLOWED=false'
+            echo 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b'
+            echo 'GLIBC_MAX=2.31'
+            echo 'REMOVED=full native VoIP relay and libopus'
+            echo 'WARNINGS=Voice calling changes; QR and messaging require actual-device tests'
+          } > ../out/provenance.txt
+          ls -lh target/release/waxum ../out/*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: waxum-lite-experimental-never-deploy
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
