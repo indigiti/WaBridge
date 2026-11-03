@@ -18,7 +18,6 @@ $required=[
     'private/src/storage-services.php','private/src/storage-migration.php',
     'private/src/waxum-provisioning.php',
     'private/cli/worker.php','private/cli/webhooks.php','private/cli/waxum-supervisor.sh',
-    'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz',
     'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz',
     'private/build/release.json'
 ];
@@ -56,8 +55,6 @@ foreach (['^messages/?$','^gateway/?$','^storage/?$','^qr/?$',
     if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
 }
 $fixedDigests=[
-    'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'=>
-      '2a8d5d9f89f600a413854b8823db3f9892e26c81ff876398716b56d21e863a61',
     'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
       'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
 ];
@@ -65,6 +62,8 @@ foreach($fixedDigests as $file=>$digest) {
     if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
         throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
 }
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
 if(file_exists($path.'/public/waxum'))
     throw new RuntimeException('Rust binary must never be deployed to public HTML');
 echo "WaBridge DigiOps release validated\n";
