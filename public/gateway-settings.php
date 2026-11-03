@@ -43,6 +43,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $_SESSION['gateway_settings_notice']='Pinned Waxum executable '.$result.' privately. A Cloudways-approved service manager must still start and supervise it.';
             header('Location: gateway-settings.php',true,303);
             exit;
+        } elseif ($action==='compat_install') {
+            if (($_POST['ack_supervisor_stopped'] ?? '') !== 'yes')
+                throw new InvalidArgumentException('Confirm that Cloudways Supervisor has been stopped before replacing the Rust executable.');
+            if (gateway_diagnostics()['ready'])
+                throw new InvalidArgumentException('Rust is responding. Stop the service through Cloudways before executable replacement.');
+            $result=waxum_install_compat_binary();
+            audit_event('waxum_compat_binary_installed','admin','v0.16.1-glibc231',['result'=>$result]);
+            $_SESSION['gateway_settings_notice']='Cloudways-compatible Waxum '.$result.' privately. Ask Cloudways to restart the existing Supervisor job, then check Diagnostics. Do not change the token or database settings.';
+            header('Location: gateway-settings.php',true,303);
+            exit;
         } elseif ($action==='sqlite_test') {
             if (gateway_diagnostics()['ready'])
                 throw new InvalidArgumentException('Rust is already ready. Stop and back up the gateway before any storage change.');
@@ -122,6 +132,25 @@ $rustPrep=waxum_provision_status();
           </form>
         <?php endif; ?>
         <p class="panel-help">Preparation extracts a fixed, checksum-pinned ELF binary. It does not execute it. Cloudways must explicitly support running and supervising the binary; PHP cannot safely make a permanent service by spawning a detached process from this webpage.</p>
+        <div class="setup-steps">
+          <p><strong>Cloudways compatibility:</strong> The standard Waxum v0.16.1 executable needs glibc 2.38/2.39, but your Cloudways server reports glibc 2.36 (x86_64). The separate source-pinned compatibility build was compiled against glibc 2.31 and passed an ELF ABI audit.</p>
+          <p><strong>Compatible package:</strong> <?= $rustPrep['compat_archive_verified'] ? 'SHA-256 verified and available in private release' : 'Not present or checksum mismatch' ?> ·
+          <strong>Executable:</strong> <?= $rustPrep['compat_binary_installed'] ? 'Verified compatible variant installed' : 'Compatible variant not yet installed' ?></p>
+          <?php if ($rustPrep['compat_archive_verified'] && !$rustPrep['compat_binary_installed']): ?>
+            <form method="post" class="form-stack">
+              <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+              <input type="hidden" name="action" value="compat_install">
+              <label>
+                <input type="checkbox" name="ack_supervisor_stopped" value="yes" required>
+                I confirm Cloudways has stopped the existing Waxum Supervisor job. Replacing the executable will preserve the previous binary as a private non-executable backup and will not modify my secret, PHP JSON storage, or WhatsApp session data.
+              </label>
+              <button class="button button-primary" type="submit">Install Cloudways-compatible Rust executable</button>
+            </form>
+          <?php elseif ($rustPrep['compat_binary_installed']): ?>
+            <p class="notice notice-success" role="status">Cloudways-compatible binary installed and verified. Ask Cloudways to start the existing Supervisor job and check full diagnostics.</p>
+          <?php endif; ?>
+        </div>
+
         <div class="notice notice-warning" role="note"><strong>Do not start while port 3451 is publicly accessible.</strong> The pinned upstream Waxum HTTP server binds all interfaces, not localhost-only. Cloudways must block public ingress and provide an approved supervisor before process startup.</div>
         <p class="panel-help"><strong>Separate storage prerequisite:</strong> PHP JSON mode does not replace Waxum's internal database and linked-device state storage. Cloudways must approve the actual Rust storage configuration before first startup.</p>
       </section>
