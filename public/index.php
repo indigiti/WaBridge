@@ -113,7 +113,6 @@ if ($authed) {
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#eef3f7">
   <title>WaBridge — Control Center</title>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css">
   <!-- Critical first paint: remains usable even if a CDN or proxy serves stale CSS. -->
   <style>
     :root{color-scheme:light;font-family:system-ui,sans-serif;color:#183653;background:#eef3f7}
@@ -128,6 +127,7 @@ if ($authed) {
     .section-nav{display:flex;gap:20px;overflow:auto}.table-scroll{overflow-x:auto}.site-footer{padding:25px;text-align:center;font-size:12px;color:#667d92}
     @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
   </style>
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css">
 </head>
 <body class="<?= $authed ? 'dashboard-page' : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>
