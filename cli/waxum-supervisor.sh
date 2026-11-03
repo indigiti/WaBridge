@@ -32,12 +32,18 @@ set +a
 
 [[ -v SUPERADMIN_TOKEN && -n "$SUPERADMIN_TOKEN" ]] || die "SUPERADMIN_TOKEN missing"
 [[ -v JWT_SECRET && -n "$JWT_SECRET" ]] || die "JWT_SECRET missing"
-[[ -v DATABASE_URL && -n "$DATABASE_URL" ]] || die "DATABASE_URL missing: configure managed MariaDB/PostgreSQL first"
+[[ -v DATABASE_URL && -n "$DATABASE_URL" ]] || die "DATABASE_URL missing: select Rust SQLite test mode in WaBridge Gateway Settings or configure managed MariaDB/PostgreSQL"
 
-# Do not silently fall back to SQLite metadata on this Cloudways test server.
+# Never silently default to SQLite; it must be explicitly opted in via
+# the private dashboard-created environment file. Managed SQL remains valid.
 case "$DATABASE_URL" in
     mysql://*|postgres://*) ;;
-    *) die "DATABASE_URL must use mysql:// or postgres:// (not SQLite)" ;;
+    sqlite://*)
+        [[ -f "$DB_ENV" && -r "$DB_ENV" ]] || die "Rust SQLite test mode was not explicitly enabled"
+        [[ "$DATABASE_URL" == "sqlite://$DATA_DIR/waxum.db" ]] || die "Rust SQLite metadata path must be private and fixed"
+        [[ ! -L "$DATA_DIR/waxum.db" ]] || die "SQLite metadata symlink prohibited"
+        ;;
+    *) die "Unsupported DATABASE_URL backend" ;;
 esac
 
 [[ ! -L "$DATA_DIR" ]] || die "private WhatsApp storage symlink prohibited"
