@@ -15,6 +15,7 @@ return [
     'allowed_sessions'=>['test-device'],
     'max_message_chars'=>2000,
     'api_clients'=>[],
+    'storage_driver'=>'sqlite',
 ];
 CFG;
 file_put_contents($cfg,$testConfig);
