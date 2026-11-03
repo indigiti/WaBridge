@@ -44,6 +44,10 @@ function store(): PDO {
       sessions_json TEXT NOT NULL, per_minute INTEGER NOT NULL DEFAULT 30,
       active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL
     )');
+    $columns=$pdo->query('PRAGMA table_info(api_clients)')->fetchAll();
+    $names=array_column($columns,'name');
+    if (!in_array('expires_at',$names,true)) $pdo->exec('ALTER TABLE api_clients ADD COLUMN expires_at INTEGER');
+    if (!in_array('last_used_at',$names,true)) $pdo->exec('ALTER TABLE api_clients ADD COLUMN last_used_at INTEGER');
     $pdo->exec('CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY, session_id TEXT, event_type TEXT, received_at INTEGER NOT NULL, payload TEXT NOT NULL
     )');
@@ -62,10 +66,12 @@ function client_auth(): ?array {
     $auth = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? '');
     if (!preg_match('/\ABearer ([a-zA-Z0-9._~-]{24,256})\z/D', $auth, $matches)) return null;
     $hash = hash('sha256', $matches[1]);
-    $q = store()->prepare('SELECT id,sessions_json,per_minute FROM api_clients WHERE token_sha256=? AND active=1 LIMIT 1');
-    $q->execute([$hash]);
+    $q = store()->prepare('SELECT id,sessions_json,per_minute FROM api_clients WHERE token_sha256=? AND active=1 AND (expires_at IS NULL OR expires_at>?) LIMIT 1');
+    $q->execute([$hash,time()]);
     $managed=$q->fetch();
     if ($managed) {
+        $usage=store()->prepare('UPDATE api_clients SET last_used_at=? WHERE id=?');
+        $usage->execute([time(),$managed['id']]);
         $sessions=json_decode($managed['sessions_json'],true);
         return ['id'=>$managed['id'],'sessions'=>is_array($sessions)?$sessions:[],'limit'=>max(1,min(600,(int)$managed['per_minute']))];
     }
