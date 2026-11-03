@@ -315,6 +315,26 @@ final class JsonStore {
             return [];
         });
     }
+    /**
+     * One-time import of a consistent legacy snapshot. No existing JSON data
+     * may be overwritten. The original SQLite file is retained untouched.
+     */
+    public function importSnapshot(array $snapshot): void {
+        $this->mutate(function(array &$state)use($snapshot) {
+            foreach (['clients','jobs','quotas','events','deliveries','receipts','audit'] as $key) {
+                if (!isset($snapshot[$key]) || !is_array($snapshot[$key]))
+                    throw new InvalidArgumentException('Invalid migration snapshot');
+                if (count($state[$key])!==0)
+                    throw new RuntimeException('Existing JSON data prevents migration');
+            }
+            $state=$this->blank();
+            foreach (['clients','jobs','quotas','events','deliveries','receipts','audit'] as $key)
+                $state[$key]=$snapshot[$key];
+            if (count($state['jobs'])>4000 || count($state['clients'])>100 ||
+                count($state['events'])>500 || count($state['deliveries'])>1000 ||
+                count($state['audit'])>500) throw new RuntimeException('Migration exceeds JSON test-mode limits');
+        });
+    }
     public function hasActiveData(): bool {
         return $this->read(static fn(array $s) =>
             count($s['clients'])>0 || count($s['jobs'])>0 || count($s['events'])>0);
