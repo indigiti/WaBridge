@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/_loader.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/waxum-provisioning.php';
 header('Cache-Control: no-store, private');
 header('Pragma: no-cache');
@@ -8,7 +9,7 @@ header('X-Robots-Tag: noindex');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'self'; script-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self'");
 if (!admin_authenticated()) {
     http_response_code(403);
     exit('Sign in to WaBridge before managing gateway settings.');
@@ -30,7 +31,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             gateway_settings_save($token);
             audit_event('gateway_token_updated','admin','localhost:3451');
             $_SESSION['gateway_settings_notice']='Private gateway token saved. Saving alone does not start Rust.';
-            header('Location: gateway-settings.php',true,303);
+            header('Location: /wabridge/gateway',true,303);
             exit;
         }
         if ($action==='generate') {
@@ -41,7 +42,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $result=waxum_stage_binary();
             audit_event('waxum_binary_staged','admin','v0.16.1',['status'=>$result]);
             $_SESSION['gateway_settings_notice']='Pinned Waxum executable '.$result.' privately. A Cloudways-approved service manager must still start and supervise it.';
-            header('Location: gateway-settings.php',true,303);
+            header('Location: /wabridge/gateway',true,303);
             exit;
         } elseif ($action==='compat_install') {
             if (($_POST['ack_supervisor_stopped'] ?? '') !== 'yes')
@@ -51,7 +52,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $result=waxum_install_compat_binary();
             audit_event('waxum_compat_binary_installed','admin','v0.16.1-glibc231',['result'=>$result]);
             $_SESSION['gateway_settings_notice']='Cloudways-compatible Waxum '.$result.' privately. Ask Cloudways to restart the existing Supervisor job, then check Diagnostics. Do not change the token or database settings.';
-            header('Location: gateway-settings.php',true,303);
+            header('Location: /wabridge/gateway',true,303);
             exit;
         } elseif ($action==='sqlite_test') {
             if (gateway_diagnostics()['ready'])
@@ -61,7 +62,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $result=waxum_enable_test_sqlite();
             audit_event('waxum_sqlite_test_storage_enabled','admin','private_waxum_metadata');
             $_SESSION['gateway_settings_notice']='Rust SQLite testing mode '.$result.'. Ask Cloudways to restart the existing Supervisor job; do not regenerate the SUPERADMIN_TOKEN. PHP storage remains JSON.';
-            header('Location: gateway-settings.php',true,303);
+            header('Location: /wabridge/gateway',true,303);
             exit;
         } else {
             throw new InvalidArgumentException('Unsupported action');
@@ -83,14 +84,14 @@ $rustPrep=waxum_provision_status();
   <meta name="robots" content="noindex,nofollow">
   <title>Gateway Settings · WaBridge</title>
   <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
+<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
 </head>
 <body class="dashboard-page">
-  <div class="site-shell">
-    <header class="site-header">
-      <a class="brand-lockup" href="./"><span class="brand-mark" aria-hidden="true"><span class="brand-mark-inner">W</span></span><span class="brand-copy"><strong>Wa<span>Bridge</span></strong><small>MESSAGING INFRASTRUCTURE</small></span></a>
-      <div class="header-right"><a class="button button-ghost button-small" href="./">Back to dashboard</a></div>
-    </header>
-    <main class="workspace">
+  <?php ui_shell_start('gateway'); ?>
+<main class="workspace">
+<?php ui_breadcrumb('Administration','Gateway settings'); ?>
       <div class="workspace-top"><div>
         <div class="eyebrow">WABRIDGE / WEB-ONLY SETUP</div>
         <h1>Gateway settings</h1>
@@ -229,8 +230,5 @@ $rustPrep=waxum_provision_status();
           <p><strong>If declined:</strong> Same-server, web-only persistent Rust hosting is not feasible on this Cloudways plan. Use a managed external Rust host or the official WhatsApp Cloud API instead.</p>
         </div>
       </section>
-      <p class="panel-help"><a href="diagnostics.php">Open full diagnostics</a> · <a href="./">Return to dashboard</a></p>
-    </main>
-    <footer class="site-footer">WaBridge · Secure, web-managed configuration · Runtime startup requires an approved supervisor</footer>
-  </div>
-</body></html>
+      <p class="panel-help"><a href="/wabridge/diagnostics">Open full diagnostics</a> · <a href="/wabridge/">Return to dashboard</a></p>
+    </main><?php ui_shell_end(); ?></body></html>
