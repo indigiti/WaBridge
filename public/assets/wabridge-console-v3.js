@@ -56,25 +56,16 @@
     }
     if (!desktop()) closeMobile();
   }));
-  const path = window.location.pathname.split('/').pop() || 'index.php';
-  const current = window.location.hash || '';
+  // The PHP shell marks the authoritative active route; also tolerate
+  // /overview and direct legacy links during Cloudways migration.
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
   document.querySelectorAll('.console-sidebar a').forEach(a => {
     const href = a.getAttribute('href') || '';
-    if ((href === '#overview' && path === 'index.php' && !current) ||
-        (href === './' && path === 'index.php' && !current) ||
-        (href.startsWith('#') && current === href) ||
-        (href && !href.startsWith('#') && href !== './' && path === href.split('?')[0])) {
-      a.classList.add('is-active');
-      a.setAttribute('aria-current', 'page');
-    }
-  });
-  window.addEventListener('hashchange', () => {
-    document.querySelectorAll('.console-sidebar a').forEach(a => {
-      const hit=a.getAttribute('href')===window.location.hash;
-      a.classList.toggle('is-active', hit);
-      if (hit) a.setAttribute('aria-current','page');
-      else a.removeAttribute('aria-current');
-    });
+    if (!href || href.startsWith('#')) return;
+    const target = new URL(href, window.location.href).pathname.replace(/\/+$/, '') || '/';
+    if (target !== path && !(target === '/wabridge' && path === '/wabridge/overview')) return;
+    a.classList.add('is-active');
+    a.setAttribute('aria-current', 'page');
   });
   const activeSection = document.getElementById(window.location.hash.slice(1));
   if (activeSection && activeSection.tagName === 'DETAILS') activeSection.open = true;
