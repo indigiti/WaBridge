@@ -61,6 +61,13 @@ function waxum_stage_binary(): string {
     if (!class_exists('PharData'))
         throw new RuntimeException('Cloudways PHP PharData archive support is unavailable');
     $dir=waxum_provision_dir();
+    $runtime=dirname(__DIR__).'/runtime';
+    if (is_link($runtime) || is_link($dir)) throw new RuntimeException('Private staging symlink prohibited');
+    if (!is_dir($runtime) && !mkdir($runtime,0700,true) && !is_dir($runtime))
+        throw new RuntimeException('Private runtime directory unavailable');
+    if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir))
+        throw new RuntimeException('Private Waxum staging directory unavailable');
+    @chmod($dir,0700);
     $destination=$dir.'/waxum';
     if (is_link($destination)) throw new RuntimeException('Binary symlink prohibited');
     if (is_file($destination)) return 'already_staged';
