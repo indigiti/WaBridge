@@ -14,12 +14,7 @@ jobs:
       - name: Smoke tests
         run: php tests/smoke.php
       - name: Verify SQLite PHP extension
-        run: php -m | grep -Eiq '^pdo_sqlite
-        run: |
-          test ! -e config.php
-          test ! -e .env
-          test ! -d whatsapp_sessions
-
+        run: php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
       - name: Queue integration tests
         run: php tests/queue.php
       - name: Check no secrets were committed
