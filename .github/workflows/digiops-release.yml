@@ -21,6 +21,8 @@ jobs:
           php tests/gateway-settings.php
       - name: JSON backend tests without a database connection
         run: php tests/json-store.php
+      - name: Test private database-to-JSON cutover
+        run: php tests/storage-migration.php
       - name: Assemble DigiOps public/private payload
         run: |
           php tools/package-release.php
