@@ -19,6 +19,7 @@ jobs:
           php tests/queue.php
           php tests/loader.php
           php tests/gateway-settings.php
+          php tests/auth-session.php
       - name: JSON backend tests without a database connection
         run: php tests/json-store.php
       - name: Test private database-to-JSON cutover
