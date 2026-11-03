@@ -202,7 +202,7 @@ if ($authed) {
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
+        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="gateway-settings.php">Gateway settings</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
       </nav>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
         <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
@@ -212,7 +212,7 @@ if ($authed) {
           <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</div></article>
         </div>
       </section>
-      <?php if (!$gatewayState['ready']): ?><div class="notice notice-warning" role="status"><strong>WhatsApp gateway: <?= escape(str_replace('_',' ',(string)$gatewayState['state'])) ?>.</strong> <?= escape((string)$gatewayState['message']) ?> <a href="diagnostics.php">Open diagnostics</a></div><?php endif; ?>
+      <?php if (!$gatewayState['ready']): ?><div class="notice notice-warning" role="status"><strong>WhatsApp gateway: <?= escape(str_replace('_',' ',(string)$gatewayState['state'])) ?>.</strong> <?= escape((string)$gatewayState['message']) ?> <a href="gateway-settings.php">Configure gateway</a> · <a href="diagnostics.php">Diagnostics</a></div><?php endif; ?>
       <div class="workspace-two">
         <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
           <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true">↗</span></div>
