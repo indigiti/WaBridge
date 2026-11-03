@@ -22,6 +22,7 @@
   };
   const sync = () => {
     if (toggle) toggle.setAttribute('aria-expanded', String(expanded()));
+    if (toggle) toggle.setAttribute('aria-label', expanded() ? 'Collapse sidebar' : 'Expand sidebar');
     if (mobile) mobile.setAttribute('aria-expanded', String(body.classList.contains('sidebar-mobile-open')));
   };
   try { if (localStorage.getItem(STORE) === '1') body.classList.add('sidebar-compact'); } catch (e) {}
@@ -59,7 +60,8 @@
   const current = window.location.hash || '';
   document.querySelectorAll('.console-sidebar a').forEach(a => {
     const href = a.getAttribute('href') || '';
-    if ((href === './' && path === 'index.php' && !current) ||
+    if ((href === '#overview' && path === 'index.php' && !current) ||
+        (href === './' && path === 'index.php' && !current) ||
         (href.startsWith('#') && current === href) ||
         (href && !href.startsWith('#') && href !== './' && path === href.split('?')[0])) {
       a.classList.add('is-active');
