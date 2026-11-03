@@ -16,13 +16,11 @@ if ($action==='summary') {
     exit(0);
 }
 if ($action==='review') {
-    $q=$db->query("SELECT id,client_id,session_id,state,attempts,updated_at,response_code FROM jobs WHERE state='needs_review' ORDER BY updated_at DESC LIMIT 50");
-    foreach ($q as $row) echo json_encode($row,JSON_UNESCAPED_SLASHES)."\n";
+    foreach (storage_ops('review') as $row) echo json_encode($row,JSON_UNESCAPED_SLASHES)."\n";
     exit(0);
 }
 if ($action==='dead-events') {
-    $q=$db->query("SELECT event_id,subscriber_id,attempts,updated_at,last_http FROM event_deliveries WHERE state='dead' ORDER BY updated_at DESC LIMIT 50");
-    foreach ($q as $row) echo json_encode($row,JSON_UNESCAPED_SLASHES)."\n";
+    foreach (storage_ops('dead-events') as $row) echo json_encode($row,JSON_UNESCAPED_SLASHES)."\n";
     exit(0);
 }
 if ($action==='replay-event') {
