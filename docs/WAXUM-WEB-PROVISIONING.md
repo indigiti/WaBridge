@@ -71,3 +71,25 @@ This script:
 **Hard stop before startup:** The upstream Waxum v0.16.1 binary listens on `0.0.0.0:3451`. Even if PHP connects to `127.0.0.1:3451`, the binary is publicly exposed unless Cloudways blocks port 3451 from all public inbound traffic. Confirm firewall behavior first.
 
 **Separate backend caveat:** Even when Waxum metadata uses MariaDB, upstream linked-device storage can still use SQLite internally. Do not claim strict no-SQLite compliance until the upstream session-storage implementation is audited or replaced.
+
+
+## Resolving Cloudways Supervisor BACKOFF: `DATABASE_URL missing` (testing)
+
+On the first deployment with Supervisor, its process may report:
+
+```text
+BACKOFF Exited too quickly
+Waxum startup blocked: DATABASE_URL missing: configure managed MariaDB/PostgreSQL first
+```
+
+This is a deliberate check in WaBridge's `cli/waxum-supervisor.sh`, not an HTTP port or token error. It is now possible to choose **private Rust SQLite testing mode** explicitly through the authenticated browser dashboard, without registering a managed MariaDB/PostgreSQL database:
+
+1. Deploy the DigiOps release containing the updated private script.
+2. Open `/wabridge/gateway-settings.php` and select **Enable private Rust SQLite test mode**, then acknowledge the single-server storage limitation.
+3. This writes `runtime/waxum-provision/waxum-db.env` atomically with mode 0600, pointing to `sqlite://<private_html-root>/runtime/waxum-data/waxum.db`.
+4. Ask Cloudways Support to **restart the existing Supervisor job**. The script will create protected `runtime/waxum-data/whatsapp_sessions` and run the verified binary with `WHATSAPP_STORAGE_PATH`.
+5. Verify `/wabridge/diagnostics.php` shows `rust.state=ready` and `rust.http=200`. If not, ask for redacted Supervisor errors.
+
+**Boundaries:** This *does not mean no database*: the Rust process uses local SQLite files for metadata and linked-device session state. WaBridge PHP **continues** using its separate JSON test storage. The mode is limited to one server for testing; back up the Rust files, limit disk access, and migrate to managed storage and operational controls before production. Do not share generated superadmin tokens or database credentials.
+
+For production using managed MariaDB/MySQL, Cloudways may instead supply a private `DATABASE_URL=mysql://...` variable for the Supervisor job or a provider-owned, permission-protected `waxum-db.env`. Do not overwrite an existing private database configuration blindly.
