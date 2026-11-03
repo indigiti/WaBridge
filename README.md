@@ -15,10 +15,27 @@ Read [JSON storage and browser migration](docs/JSON-STORAGE.md) and [DigiOps dep
 
 ## Browser-only administration
 
-After deploying through DigiOps, sign in to the application and open:
-- /wabridge/storage-settings.php — choose JSON testing mode and safely migrate existing test data
-- /wabridge/gateway-settings.php — configure same-server Rust endpoint token
-- /wabridge/diagnostics.php — verify PHP, storage and Rust readiness
+After deploying through DigiOps, sign in at `/wabridge/` (or `/wabridge/sign-in`), then use the collapsible sidebar. All human-facing routes share the same glass dashboard shell:
+
+| Area | Browser-friendly URL |
+| --- | --- |
+| Overview | `/wabridge/` |
+| Connect a device | `/wabridge/devices` |
+| Linked sessions | `/wabridge/sessions` |
+| Send message | `/wabridge/messaging` |
+| Message activity, manual queue testing | `/wabridge/messages` |
+| Reports (HTML) | `/wabridge/reports` |
+| Diagnostics (HTML) | `/wabridge/diagnostics` |
+| API applications | `/wabridge/api-applications` |
+| Rust gateway settings | `/wabridge/gateway` |
+| PHP storage settings | `/wabridge/storage` |
+| QR pairing | `/wabridge/qr?sid=YOUR_SESSION_ID` |
+| JSON diagnostic report | `/wabridge/api/diagnostics` |
+| JSON operational reports | `/wabridge/api/reports` |
+
+Cloudways: these routes require Apache `mod_rewrite` and `.htaccess` support under the deployed `public_html/wabridge/` directory. If the hosting reverse proxy bypasses Apache's rewrite rules, configure equivalent routes at the proxy. Explicit rewrite rules protect existing `/wabridge/api/v1/*` endpoints. Old HTML `.php` bookmarks redirect to pretty paths for GET/HEAD only; POST and CSRF handling remain in the original controllers. **The legacy `diagnostics.php` and `reports.php` URLs remain authenticated JSON for backward compatibility**, while the new routes return visual HTML reports. Sign-out uses a CSRF-validated POST to `/wabridge/sign-out` — never a logout-on-GET link.
+
+See [DigiOps deployment](docs/DIGIOPS.md). No live Cloudways route verification is implied by a successful GitHub build.
 
 A running supervised Rust gateway is still necessary for actual QR pairing and message delivery. A PHP webpage cannot safely install or supervise a daemon on Cloudways without provider support.
 
