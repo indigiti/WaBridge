@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/_loader.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/waxum-provisioning.php';
 header('Cache-Control: no-store, private');
 header('Pragma: no-cache');
 header('X-Robots-Tag: noindex');
@@ -15,19 +16,36 @@ if (!admin_authenticated()) {
 $notice = (string)($_SESSION['gateway_settings_notice'] ?? '');
 unset($_SESSION['gateway_settings_notice']);
 $error = '';
+$generatedToken = ''; // only emitted on the request in which it was created
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         assert_csrf();
-        if (($_POST['action'] ?? '') !== 'save') throw new InvalidArgumentException('Unsupported action');
-        if (isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH'] > 4096) {
+        if (isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH'] > 4096)
             throw new InvalidArgumentException('Request exceeds size limit');
+        $action = (string)($_POST['action'] ?? '');
+        if ($action==='save') {
+            if (gateway_diagnostics()['ready'])
+                throw new InvalidArgumentException('Do not rotate a connected Rust service token through the dashboard. Coordinate rotation with the service manager.');
+            $token = (string)($_POST['gateway_token'] ?? '');
+            gateway_settings_save($token);
+            audit_event('gateway_token_updated','admin','localhost:3451');
+            $_SESSION['gateway_settings_notice']='Private gateway token saved. Saving alone does not start Rust.';
+            header('Location: gateway-settings.php',true,303);
+            exit;
         }
-        $token = (string)($_POST['gateway_token'] ?? '');
-        gateway_settings_save($token);
-        audit_event('gateway_token_updated', 'admin', 'localhost:3451');
-        $_SESSION['gateway_settings_notice'] = 'Private gateway token saved. Connectivity is checked separately below.';
-        header('Location: gateway-settings.php', true, 303);
-        exit;
+        if ($action==='generate') {
+            $generatedToken=waxum_prepare_new_token();
+            audit_event('waxum_credential_prepared','admin','localhost:3451');
+            $notice='SUPERADMIN_TOKEN generated and saved privately. Copy it now if needed. The Rust process has NOT been started.';
+        } elseif ($action==='stage') {
+            $result=waxum_stage_binary();
+            audit_event('waxum_binary_staged','admin','v0.16.1',['status'=>$result]);
+            $_SESSION['gateway_settings_notice']='Pinned Waxum executable '.$result.' privately. A Cloudways-approved service manager must still start and supervise it.';
+            header('Location: gateway-settings.php',true,303);
+            exit;
+        } else {
+            throw new InvalidArgumentException('Unsupported action');
+        }
     } catch (Throwable $e) {
         $error = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Unable to save settings. Check private runtime permissions.';
         error_log('WaBridge gateway settings write failed: ' . get_class($e));
@@ -35,7 +53,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 $existing = gateway_settings_read();
 $diag = gateway_diagnostics();
-$gatewayConfigured = !empty(config()['gateway_token']);
+$gatewayConfigured = !empty(config()['gateway_token']) || $generatedToken!=='';
+$rustPrep=waxum_provision_status();
 ?>
 <!doctype html>
 <html lang="en">
@@ -60,7 +79,42 @@ $gatewayConfigured = !empty(config()['gateway_token']);
       <?php if ($notice !== ''): ?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif; ?>
       <?php if ($error !== ''): ?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif; ?>
       <section class="glass-panel workspace-section">
-        <div class="panel-heading"><div><div class="eyebrow">STEP 1 / CONNECTION</div><h2>Local Rust connection</h2></div></div>
+        <div class="panel-heading"><div><div class="eyebrow">STEP 1 / PREPARE CREDENTIAL</div><h2>Generate SUPERADMIN_TOKEN</h2></div></div>
+        <p class="panel-help">Use this to prepare a new Rust service before its first connection. PHP generates a cryptographically random token and prepares a restricted private environment file for the approved process supervisor. This does not create or start a Rust process.</p>
+        <?php if ($generatedToken!==''): ?>
+          <div class="notice notice-success" role="status"><strong>One-time generated credential</strong> — copy it now. This value will not be shown again.</div>
+          <div class="field">
+            <label for="issued_token">SUPERADMIN_TOKEN — one-time display</label>
+            <input id="issued_token" type="text" value="<?= escape($generatedToken) ?>" readonly spellcheck="false" autocomplete="off" style="font-family:monospace;overflow-wrap:anywhere">
+          </div>
+          <p class="panel-help">The same secret is already stored in private gateway settings and the private Waxum provisioning file. Never include this value in email, chat, logs or support tickets.</p>
+        <?php elseif (!$gatewayConfigured): ?>
+          <form method="post">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+            <input type="hidden" name="action" value="generate">
+            <button class="button button-primary" type="submit">Generate new Rust SUPERADMIN_TOKEN</button>
+          </form>
+        <?php else: ?>
+          <p class="panel-help"><strong>A gateway credential is already saved.</strong> The existing secret is hidden. Do not generate an unrelated replacement while the Rust service might be using the old credential.</p>
+        <?php endif; ?>
+      </section>
+      <section class="glass-panel workspace-section">
+        <div class="panel-heading"><div><div class="eyebrow">STEP 2 / EXECUTABLE</div><h2>Prepare verified Waxum Rust binary</h2></div></div>
+        <p class="panel-help">DigiOps packages the pinned upstream Waxum v0.16.1 Linux AMD64 archive in the private release. The server is <?= escape((string)$rustPrep['platform_arch']) ?>. The downloaded archive is SHA-256 verified before it is included in DigiOps and reverified before private extraction.</p>
+        <p class="panel-help"><strong>Archive:</strong> <?= $rustPrep['archive_checksum_valid'] ? 'Verified' : 'Missing or unverified' ?> ·
+        <strong>Executable:</strong> <?= $rustPrep['binary_staged'] ? 'Privately staged' : 'Not staged' ?> ·
+        <strong>Service manager:</strong> Not provisioned through WaBridge</p>
+        <?php if ($rustPrep['binary_archive_ready'] && !$rustPrep['binary_staged']): ?>
+          <form method="post">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+            <input type="hidden" name="action" value="stage">
+            <button class="button button-primary" type="submit">Prepare executable in private runtime</button>
+          </form>
+        <?php endif; ?>
+        <p class="panel-help">Preparation extracts a fixed, checksum-pinned ELF binary. It does not execute it. Cloudways must explicitly support running and supervising the binary; PHP cannot safely make a permanent service by spawning a detached process from this webpage.</p>
+      </section>
+      <section class="glass-panel workspace-section">
+        <div class="panel-heading"><div><div class="eyebrow">STEP 3 / CONNECTION</div><h2>Local Rust connection</h2></div></div>
         <p class="panel-help">For your same-server test the address is fixed to localhost, preventing this form from sending your gateway secret to an arbitrary external server.</p>
         <form method="post" class="form-stack" autocomplete="off">
           <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
@@ -99,13 +153,13 @@ $gatewayConfigured = !empty(config()['gateway_token']);
         <div class="panel-heading"><div><div class="eyebrow">STEP 2 / HOSTING</div><h2>Request web-only Rust activation</h2></div></div>
         <p class="panel-help">Use Cloudways Support Chat or Help Desk from the Cloudways browser dashboard. Do not send tokens or private configuration through support chat.</p>
         <div class="setup-steps">
-          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with SQLite persistence outside the webroot. Keep TCP port 3451 blocked from public access while allowing PHP to connect locally at 127.0.0.1:3451. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
+          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with a storage backend approved for WhatsApp session persistence outside the webroot. Keep TCP port 3451 blocked from public access while allowing PHP to connect locally at 127.0.0.1:3451. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
           <p><strong>If approved:</strong> Ask Cloudways to provide a secure method to deploy a pinned Waxum binary, configure its private token, and assign a supported supervisor. No user terminal should be necessary.</p>
           <p><strong>If declined:</strong> Same-server, web-only persistent Rust hosting is not feasible on this Cloudways plan. Use a managed external Rust host or the official WhatsApp Cloud API instead.</p>
         </div>
       </section>
       <p class="panel-help"><a href="diagnostics.php">Open full diagnostics</a> · <a href="./">Return to dashboard</a></p>
     </main>
-    <footer class="site-footer">WaBridge · Secure, web-managed configuration</footer>
+    <footer class="site-footer">WaBridge · Secure, web-managed configuration · Runtime startup requires an approved supervisor</footer>
   </div>
 </body></html>
