@@ -16,7 +16,7 @@ $required=[
     'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz',
     'public/qr.php','public/api/send.php','public/api/v1/messages.php',
     'private/src/bootstrap.php','private/src/store.php',
-    'private/cli/worker.php','private/cli/webhooks.php',
+    'private/cli/worker.php','private/cli/webhooks.php','private/cli/waxum-supervisor.sh',
     'private/build/release.json',
 ];
 foreach($required as $name){
