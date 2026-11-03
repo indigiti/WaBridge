@@ -31,6 +31,7 @@ try {
                 $_SESSION['login_at']=time();
                 $_SESSION['last_seen']=time();
                 $notice='Signed in successfully.';
+                audit_event('admin_login','admin');
             } else {
                 usleep(200000);
                 $error='Invalid credentials.';
@@ -39,6 +40,7 @@ try {
             $_SESSION = [];
             session_regenerate_id(true);
             $notice = 'Signed out.';
+            audit_event('admin_logout','admin');
         } elseif (admin_authenticated()) {
             if ($action === 'send') {
                 [$sid, $to, $text] = validate_message([
@@ -68,12 +70,14 @@ try {
                 $s=store()->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at) VALUES(?,?,?,?,?)');
                 $s->execute([$id,hash('sha256',$issuedToken),json_encode($sessions,JSON_THROW_ON_ERROR),$rate,time()]);
                 $notice='Application created. Copy its API token now; it will not be shown again.';
+                audit_event('api_client_created','admin',$id,['sessions'=>$sessions,'per_minute'=>$rate]);
             } elseif ($action==='revoke_client') {
                 $id=(string)($_POST['client_id']??'');
                 if (!preg_match('/\A[a-zA-Z0-9_-]{3,64}\z/D',$id)) throw new InvalidArgumentException('Invalid application ID');
                 $s=store()->prepare('UPDATE api_clients SET active=0 WHERE id=?');
                 $s->execute([$id]);
                 $notice='API application access revoked.';
+                audit_event('api_client_revoked','admin',$id);
             }
         }
     }
