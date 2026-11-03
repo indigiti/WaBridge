@@ -9,7 +9,8 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
 if (!admin_authenticated()) { http_response_code(403);exit('Sign in to WaBridge first.'); }
-$notice='';
+$notice=(string)($_SESSION['storage_flash']??'');
+unset($_SESSION['storage_flash']);
 $error='';
 if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
     try {
@@ -19,7 +20,10 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
         $result=storage_migrate_to_json();
         if ($result['status']==='already_json') $notice='JSON testing mode is already active.';
         else $notice='Migration completed. '.$result['clients'].' API clients and '.$result['jobs'].' messages were preserved. The original SQLite file was retained as a private backup.';
-        audit_event('storage_json_migration','admin','json',['status'=>$result['status']]);
+        (new JsonStore())->audit('storage_json_migration','admin','json',['status'=>$result['status']]);
+        $_SESSION['storage_flash']=$notice;
+        header('Location: storage-settings.php',true,303);
+        exit;
     } catch (Throwable $e) {
         $error=$e instanceof InvalidArgumentException ? $e->getMessage() : 'Migration could not complete: '.$e->getMessage();
         error_log('WaBridge storage migration error: '.get_class($e));
