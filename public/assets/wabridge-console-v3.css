@@ -50,7 +50,8 @@
 .console-body .section-heading{margin-bottom:18px}
 .console-body .section-heading h2{font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:20px;font-weight:750;letter-spacing:-.45px}
 .console-body .eyebrow{font-size:10px;letter-spacing:.14em;font-weight:800;color:#6583ab}
-.console-body .stats-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.console-body .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:17px}
+.console-body .stats-grid>.stat-card:last-child{grid-column:auto}
 .console-body .stat-card,.console-body .glass-panel{background:#fff;border:1px solid #e5ebf3;border-radius:18px;box-shadow:0 8px 25px rgba(23,54,89,.035);margin-bottom:18px}
 .console-body .stat-card{padding:21px;min-height:165px}
 .console-body .stat-label{color:#74859b;text-transform:none;font-size:12px;margin:0 0 16px}
@@ -95,7 +96,7 @@
 .message-filter label{font-size:12px;color:#627e99;font-weight:700;display:grid;gap:6px}
 .message-filter input,.message-filter select{width:100%;height:45px;padding:10px 12px}
 .message-filter .button{height:45px}
-@media(max-width:1260px){.console-body .workspace-two{grid-template-columns:1fr}.console-body .stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.message-log-page .log-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.message-filter{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1260px){.console-body .workspace-two{grid-template-columns:1fr}.console-body .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.message-log-page .log-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.message-filter{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:1100px){
  .console-body,.console-body.sidebar-compact{display:block}
  .console-sidebar{position:fixed;top:0;left:0;height:100dvh;width:280px;min-height:0;transform:translateX(-105%);transition:transform .22s;box-shadow:10px 0 35px #081b2d35;z-index:30}
