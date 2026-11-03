@@ -1,0 +1,104 @@
+/* WaBridge v4 glass system — readable, responsive, shared across all admin views. */
+:root{
+ --wb-ink:#142e4d;--wb-muted:#657d99;--wb-border:rgba(195,217,238,.75);
+ --wb-glass:rgba(255,255,255,.76);--wb-glass-strong:rgba(255,255,255,.91);
+ --wb-accent:#2b78b8;--wb-shade:0 14px 45px rgba(22,65,119,.08),0 3px 10px rgba(22,65,119,.035)
+}
+body.dashboard-page{
+ background:
+  radial-gradient(ellipse 55vw 40vh at 88% 3%,rgba(139,203,234,.26),transparent 75%),
+  radial-gradient(ellipse 40vw 44vh at 0% 74%,rgba(127,208,201,.18),transparent 78%),
+  linear-gradient(135deg,#f5f8fc 5%,#ebf2f9 55%,#f6f7fc 100%);
+ color:var(--wb-ink)
+}
+.dashboard-page .console-global-header{
+ background:rgba(255,255,255,.76);border-bottom:1px solid rgba(180,206,227,.58);
+ box-shadow:0 1px 20px rgba(29,82,130,.04);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)
+}
+.console-user{font-size:12px;color:#617a95;font-weight:750;letter-spacing:.02em}
+.dashboard-page .console-sidebar{background:linear-gradient(168deg,#142c4b,#102744 75%,#143557)}
+.dashboard-page .console-body>.workspace{max-width:1560px}
+.dashboard-page .glass-panel,.dashboard-page .stat-card,
+.dashboard-page .ops-collapse,.dashboard-page .pair-card{
+ background:var(--wb-glass)!important;border:1px solid var(--wb-border)!important;
+ box-shadow:var(--wb-shade)!important;
+ -webkit-backdrop-filter:blur(22px) saturate(118%);backdrop-filter:blur(22px) saturate(118%)
+}
+.dashboard-page .glass-panel{position:relative;overflow:visible}
+.dashboard-page .glass-panel:before,.dashboard-page .stat-card:before{
+ content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+ box-shadow:inset 0 1px rgba(255,255,255,.84)
+}
+.dashboard-page .stat-card{position:relative}
+.dashboard-page .stat-card .stat-label{letter-spacing:.02em}
+.dashboard-page .stat-card .stat-value{letter-spacing:-1px}
+.dashboard-page .stats-grid{align-items:stretch}
+.dashboard-page .stats-grid .stat-card{min-width:0}
+.dashboard-page .table-scroll{background:rgba(255,255,255,.56);border:1px solid #e4edf6;border-radius:13px}
+.dashboard-page table{border-collapse:separate;border-spacing:0}
+.dashboard-page th{background:rgba(239,245,251,.83)!important;color:#55718e!important}
+.dashboard-page td{color:#425d77}
+.dashboard-page tbody tr:hover td{background:rgba(243,249,254,.9)!important}
+.dashboard-page .notice{box-shadow:0 4px 12px rgba(33,81,114,.035)}
+.dashboard-page .workspace-top{padding-top:0}
+.dashboard-page .workspace-top .eyebrow{color:#5e87b1}
+.dashboard-page .workspace-top h1{color:#173555}
+.dashboard-page .workspace-top .lead{max-width:66ch}
+.dashboard-page .button{border-radius:11px}
+.dashboard-page .button-primary{background:linear-gradient(115deg,#367cb4,#23548d)}
+.dashboard-page .button-primary:hover{background:linear-gradient(115deg,#2b6ca8,#193c70)}
+.dashboard-page .button-ghost{background:rgba(255,255,255,.78)}
+.dashboard-page .input-holder input,.dashboard-page input,.dashboard-page select,.dashboard-page textarea{
+ background:rgba(255,255,255,.82);border-color:#cddcea;color:#234360
+}
+.dashboard-page a:focus-visible,.dashboard-page button:focus-visible,.dashboard-page input:focus-visible,.dashboard-page select:focus-visible,.dashboard-page summary:focus-visible{
+ outline:3px solid #4d93ca;outline-offset:2px
+}
+.dashboard-page .console-hero-actions a{background:rgba(255,255,255,.82);border-color:#cfdeed}
+.dashboard-page .console-hero-actions a:first-child{background:#23496f;color:#fff}
+.console-breadcrumbs{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:8px 0 16px;
+ color:#8192aa;font-size:11px;font-weight:650}
+.console-breadcrumbs a{color:#5078a5}
+.console-breadcrumbs strong{color:#42607e;font-weight:800}
+.dashboard-page .workspace .page-kicker{color:#6a8cae;font-size:11px;letter-spacing:.15em;font-weight:780;text-transform:uppercase}
+.dashboard-page .workspace .page-description{color:#72869b;font-size:13px;line-height:1.65}
+.dashboard-page .glass-panel h2{color:#254464}
+.dashboard-page .glass-panel .setup-steps{background:rgba(247,251,255,.86)}
+.dashboard-page .section-nav{display:none}
+.dashboard-page .qr-workspace{min-width:0}
+.dashboard-page .pair-card{margin:20px auto 30px;width:min(100%,550px)!important;text-align:center;border-radius:22px;padding:30px}
+.dashboard-page .pair-card h1{font-size:clamp(25px,3vw,34px);line-height:1.15}
+.dashboard-page .pair-qr{border:12px solid #fff!important;box-shadow:0 3px 14px #18417217;border-radius:13px;background:#fff}
+.dashboard-page .pair-help{line-height:1.65;color:#617d99}
+.dashboard-page .readiness-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.dashboard-page .readiness-grid .glass-panel{margin:0;padding:22px}
+.dashboard-page .readiness-grid strong{font-size:23px;display:block;color:#1b486e}
+.dashboard-page .readiness-grid small{display:block;color:#6d8299;font-size:12px;margin-top:7px;line-height:1.6}
+.dashboard-page .data-badge{display:inline-flex;align-items:center;border-radius:999px;
+ padding:5px 10px;font-weight:700;font-size:11px;background:#e8f1fa;color:#35618c}
+.dashboard-page .data-badge.ok{background:#dcf5e8;color:#12684d}
+.dashboard-page .data-badge.warn{background:#fff3dd;color:#866321}
+.dashboard-page .report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.dashboard-page .report-table table{min-width:460px}
+.dashboard-page .section-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:20px 0}
+.dashboard-page .section-links a{border:1px solid #d5e2ee;background:#fff9;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700}
+.dashboard-page .section-links a:hover{border-color:#91b8d4;text-decoration:none}
+.dashboard-page .workspace-two:empty{display:none}
+.dashboard-page.page-view-devices .workspace-two,
+.dashboard-page.page-view-messaging .workspace-two{grid-template-columns:1fr;max-width:900px}
+.dashboard-page.page-view-api-applications .ops-collapse{max-width:1050px}
+.dashboard-page.page-view-api-applications .ops-collapse>summary{display:none}
+.dashboard-page.page-view-api-applications .ops-collapse>.glass-panel{border-radius:18px!important}
+.dashboard-page .glass-panel .client-form{min-width:0}
+@media(max-width:1000px){.dashboard-page .readiness-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:740px){
+ .console-user{display:none}
+ .dashboard-page .readiness-grid,.dashboard-page .report-grid{grid-template-columns:1fr}
+ .dashboard-page .glass-panel,.dashboard-page .stat-card{backdrop-filter:blur(12px)}
+ .dashboard-page .pair-card{padding:20px}
+ .dashboard-page .site-header{position:relative}
+}
+@media(prefers-reduced-transparency:reduce){
+ .dashboard-page .glass-panel,.dashboard-page .stat-card,.dashboard-page .ops-collapse,.dashboard-page .pair-card{background:#fff!important;backdrop-filter:none!important}
+}
+@media(prefers-reduced-motion:reduce){.dashboard-page *, .dashboard-page *:before{transition:none!important;animation:none!important}}
