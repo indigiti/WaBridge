@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/_loader.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'self'; script-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000');
 $notice = '';
 $error = '';
@@ -49,7 +50,7 @@ try {
                     'text'=>$_POST['text'] ?? ''
                 ]);
                 $job = enqueue_message(store(), ['id'=>'admin','sessions'=>[$sid],'limit'=>10], $sid, $to, $text, 'admin-'.bin2hex(random_bytes(12)));
-                $notice = 'Message queued (ID '.$job['id'].'). Run the CLI worker to send; delivery is not confirmed.';
+                $notice = 'Message queued (ID '.$job['id'].'). Open Message activity to process this job or review its status; delivery is not confirmed.';
             } elseif ($action === 'create') {
                 // Match Waxum's session creation fields to the installed engine version.
                 $name = trim((string)($_POST['session_name'] ?? ''));
@@ -96,6 +97,7 @@ $sessions = [];
 $health = 'Not connected';
 $gatewayState = ['ready'=>false,'state'=>'not_configured','message'=>'Rust connection not configured'];
 $stats = ['queued'=>0,'accepted'=>0,'needs_review'=>0];
+$recentMessages=[];
 if ($authed) {
     try {
         $apiClients=storage_clients();
@@ -103,6 +105,11 @@ if ($authed) {
         $gatewayState = gateway_diagnostics();
         $health = $gatewayState['ready'] ? 'Ready' : ucfirst(str_replace('_',' ', $gatewayState['state']));
         $sessions = $gatewayState['ready'] ? upstream_sessions() : [];
+        foreach (storage_admin_messages(6) as $msg) {
+            if (!permitted_session((string)$msg['session_id'])) continue;
+            $msg['effective_state']=message_log_effective_status($msg);
+            $recentMessages[]=$msg;
+        }
     } catch (Throwable $e) {
         $error = 'Gateway unavailable; check Rust service and configuration.';
     }
@@ -130,6 +137,8 @@ if ($authed) {
     @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
   </style>
   <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=1">
+  <?php if ($authed): ?><script src="/wabridge/assets/wabridge-console-v3.js?v=1" defer></script><?php endif; ?>
 </head>
 <body class="<?= $authed ? 'dashboard-page' : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -144,6 +153,9 @@ if ($authed) {
     <div class="header-right">
       <span class="header-caption">Connect. Communicate. Automate.</span>
       <?php if ($authed): ?>
+        <button id="console-mobile-toggle" class="sidebar-mobile-toggle" type="button" aria-expanded="false" aria-controls="console-sidebar" aria-label="Open navigation">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
         <form method="post" class="header-logout">
           <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
           <input type="hidden" name="action" value="logout">
@@ -154,6 +166,56 @@ if ($authed) {
       <?php endif; ?>
     </div>
   </header>
+  <?php if ($authed): ?>
+  <div class="console-body" id="console-body">
+    <div id="console-backdrop" class="console-mobile-backdrop" aria-hidden="true"></div>
+    <aside class="console-sidebar" id="console-sidebar" aria-label="Primary navigation">
+      <div class="console-sidebar-header">
+        <span class="console-sidebar-heading">Your workspace</span>
+        <button id="console-sidebar-toggle" class="sidebar-toggle" type="button" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse or expand sidebar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5 3 12l7 7M4 12h17"/></svg>
+        </button>
+        <button id="console-mobile-close" class="sidebar-mobile-close" type="button" aria-label="Close navigation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button>
+      </div>
+      <nav aria-label="Operations menu">
+        <details class="console-nav-group" open>
+          <summary><span>Workspace</span></summary>
+          <div class="console-nav-children">
+            <a class="console-nav-link" href="#overview"><span class="nav-icon" aria-hidden="true">◫</span><span class="nav-label">Overview</span></a>
+            <a class="console-nav-link" href="messages.php"><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-label">Message activity</span><span class="nav-chevron" aria-hidden="true">›</span></a>
+            <a class="console-nav-link" href="reports.php"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-label">Reports</span></a>
+          </div>
+        </details>
+        <details class="console-nav-group" open>
+          <summary><span>WhatsApp</span></summary>
+          <div class="console-nav-children">
+            <a class="console-nav-link" href="#devices"><span class="nav-icon" aria-hidden="true">◎</span><span class="nav-label">Connect device</span></a>
+            <a class="console-nav-link" href="#sessions"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Linked sessions</span></a>
+            <a class="console-nav-link" href="#messaging"><span class="nav-icon" aria-hidden="true">➤</span><span class="nav-label">Send message</span></a>
+          </div>
+        </details>
+        <details class="console-nav-group">
+          <summary><span>Developer</span></summary>
+          <div class="console-nav-children">
+            <a class="console-nav-link" href="#integrations"><span class="nav-icon" aria-hidden="true">⌘</span><span class="nav-label">API applications</span></a>
+            <a class="console-nav-link" href="diagnostics.php"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-label">API diagnostics</span></a>
+          </div>
+        </details>
+        <details class="console-nav-group">
+          <summary><span>Administration</span></summary>
+          <div class="console-nav-children">
+            <a class="console-nav-link" href="gateway-settings.php"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Rust gateway</span></a>
+            <a class="console-nav-link" href="storage-settings.php"><span class="nav-icon" aria-hidden="true">▧</span><span class="nav-label">Storage settings</span></a>
+          </div>
+        </details>
+      </nav>
+      <div class="console-sidebar-bottom">
+        <span class="sidebar-meta">System status</span>
+        <strong><?= $gatewayState['ready'] ? '● Gateway operational' : '● Gateway attention' ?></strong>
+        <small>Waxum <?= escape((string)$gatewayState['state']) ?> · JSON test storage</small>
+      </div>
+    </aside>
+  <?php endif; ?>
   <main class="<?= $authed ? 'workspace' : 'auth-main' ?>" id="main-content">
     <?php if ($setupError!==''): ?>
       <section class="auth-card setup-card" aria-labelledby="setup-title">
@@ -194,20 +256,25 @@ if ($authed) {
       </section>
     <?php else: ?>
       <div class="workspace-top">
-        <div><div class="eyebrow">WA BRIDGE / CONTROL CENTER</div><h1>Good to have you back.</h1><p class="lead">Your messaging infrastructure at a glance.</p></div>
+        <div><div class="eyebrow">OPERATIONS / OVERVIEW</div><h1>Messaging control center</h1><p class="lead">Sessions, queued messages and gateway health in one workspace.</p></div>
         <span class="workspace-chip"><span class="live-dot"></span> Admin workspace</span>
       </div>
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
-      <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="gateway-settings.php">Gateway settings</a><a href="storage-settings.php">Storage settings</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
-      </nav>
+      <div class="console-hero-actions" aria-label="Quick actions">
+        <a href="#messaging"><span aria-hidden="true">↗</span> Send test message</a>
+        <a href="#devices"><span aria-hidden="true">＋</span> Link a device</a>
+        <a href="messages.php"><span aria-hidden="true">▤</span> Message activity</a>
+        <a href="diagnostics.php"><span aria-hidden="true">◉</span> Diagnostics</a>
+      </div>
+      <div class="console-info-banner"><span class="nav-icon" aria-hidden="true">ⓘ</span><span><strong>Gateway acceptance is not delivery.</strong> Review the message log for queue processing, errors, and any verified receipts.</span></div>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
-        <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
+        <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Current infrastructure and queue</span></div>
         <div class="stats-grid">
           <article class="stat-card"><span class="stat-icon" aria-hidden="true">◉</span><p class="stat-label">Gateway health</p><div class="stat-value <?= $health==='Ready' ? 'tone-success' : 'tone-amber' ?>"><?= escape($health) ?></div><div class="stat-foot">Rust gateway readiness</div></article>
           <article class="stat-card"><span class="stat-icon" aria-hidden="true">▣</span><p class="stat-label">Linked sessions</p><div class="stat-value"><?= count($sessions) ?></div><div class="stat-foot">Reported by gateway</div></article>
-          <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted; not necessarily delivered</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true">!</span><p class="stat-label">Needs review</p><div class="stat-value"><?= (int)$stats['needs_review'] ?></div><div class="stat-foot"><a href="messages.php?status=needs_review">Review uncertain deliveries</a></div></article>
         </div>
       </section>
       <?php if (!$gatewayState['ready']): ?><div class="notice notice-warning" role="status"><strong>WhatsApp gateway: <?= escape(str_replace('_',' ',(string)$gatewayState['state'])) ?>.</strong> <?= escape((string)$gatewayState['message']) ?> <a href="gateway-settings.php">Configure gateway</a> · <a href="diagnostics.php">Diagnostics</a></div><?php endif; ?>
@@ -234,7 +301,7 @@ if ($authed) {
           </form>
         </section>
       </div>
-      <section class="glass-panel workspace-section" aria-labelledby="sessions-title">
+      <section class="glass-panel workspace-section" id="sessions" aria-labelledby="sessions-title">
         <div class="panel-heading"><div><div class="eyebrow">CONNECTED ACCOUNTS</div><h2 id="sessions-title">WhatsApp sessions</h2></div><span class="subtle-tag">QR secured</span></div>
         <div class="table-scroll"><table><thead><tr><th>Session</th><th>Status</th><th>Pairing</th></tr></thead><tbody>
           <?php $visibleSessions=0; foreach ($sessions as $s): if (!is_array($s)) continue; $sid=(string)($s['id']??$s['session_id']??''); if (!permitted_session($sid)) continue; $visibleSessions++; ?>
@@ -243,7 +310,28 @@ if ($authed) {
           <?php if ($visibleSessions===0): ?><tr><td colspan="3" class="empty-cell">No sessions to display. Connect a device once the Rust gateway is available.</td></tr><?php endif; ?>
         </tbody></table></div>
       </section>
-      <section class="glass-panel workspace-section" id="integrations" aria-labelledby="api-title">
+      <section class="glass-panel workspace-section" id="recent-activity" aria-labelledby="recent-title">
+        <div class="panel-heading console-inline-heading">
+          <div><div class="eyebrow">DELIVERY OBSERVABILITY</div><h2 id="recent-title">Recent message activity</h2></div>
+          <a class="button button-ghost button-small" href="messages.php">View full log →</a>
+        </div>
+        <p class="panel-help">The status below is based on the PHP queue and matching upstream receipts—not on assumed WhatsApp delivery.</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Job</th><th>Session</th><th>Recipient</th><th>Status</th><th>Updated (UTC)</th></tr></thead>
+          <tbody>
+            <?php foreach ($recentMessages as $message): ?>
+              <tr><td><a class="table-link" href="messages.php?id=<?= rawurlencode((string)$message['id']) ?>"><?= escape(substr((string)$message['id'],0,12)) ?>…</a></td>
+                  <td><?= escape((string)$message['session_id']) ?></td>
+                  <td><?= escape(message_log_mask_recipient((string)$message['destination'])) ?></td>
+                  <td><span class="subtle-tag <?= in_array($message['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text((string)$message['effective_state'])) ?></span></td>
+                  <td><?= escape(message_log_time((int)$message['updated_at'])) ?></td></tr>
+            <?php endforeach; ?>
+            <?php if (!$recentMessages): ?><tr><td colspan="5" class="empty-cell">No messages recorded yet. Queue a test message to start tracking.</td></tr><?php endif; ?>
+          </tbody>
+        </table></div>
+      </section>
+      <details class="ops-collapse" id="integrations"><summary><span>API applications<span class="ops-caption">Developer credentials and scoped integration access</span></span></summary>
+      <section class="glass-panel workspace-section" aria-labelledby="api-title">
         <div class="panel-heading"><div><div class="eyebrow">DEVELOPER PLATFORM</div><h2 id="api-title">API applications</h2></div><span class="soft-icon" aria-hidden="true">{ }</span></div>
         <p class="panel-help">Create scoped credentials for connected applications. Tokens are shown only once and stored as hashes.</p>
         <?php if ($issuedToken!==''): ?><div class="notice notice-warning token-notice"><strong>Save your new API token now — it will not be shown again.</strong><input aria-label="New API token" readonly value="<?= escape($issuedToken) ?>"></div><?php endif; ?>
@@ -264,8 +352,10 @@ if ($authed) {
           <?php if (!$apiClients): ?><tr><td colspan="6" class="empty-cell">No API applications yet. Add your first integration above.</td></tr><?php endif; ?>
         </tbody></table></div>
       </section>
+      </details>
     <?php endif; ?>
   </main>
+  <?php if ($authed): ?></div><?php endif; ?>
   <footer class="site-footer"><span>© WaBridge · Built for connected operations</span><span>Private workspace · Unofficial WhatsApp connections may be restricted.</span></footer>
 </div>
 </body></html>
