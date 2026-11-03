@@ -5,6 +5,8 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 header('X-Frame-Options: DENY');
+header("Content-Security-Policy: default-src 'self'; script-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000');
 $notice = '';
 $error = '';
 try {
@@ -16,14 +18,20 @@ try {
         if ($action === 'login') {
             $username = (string)($_POST['username'] ?? '');
             $password = (string)($_POST['password'] ?? '');
-            if (hash_equals((string)$cfg['admin_user'], $username) &&
+            $ip=(string)($_SERVER['REMOTE_ADDR']??'unknown');
+            $loginClient=['id'=>'login-'.hash('sha256',$ip),'limit'=>5];
+            if (!limit_client(store(),$loginClient)) {
+                $error='Too many sign-in attempts. Try again later.';
+            } elseif (hash_equals((string)$cfg['admin_user'], $username) &&
                 password_verify($password, (string)$cfg['admin_password_hash'])) {
                 session_regenerate_id(true);
-                $_SESSION['admin'] = true;
-                $notice = 'Signed in successfully.';
+                $_SESSION['admin']=true;
+                $_SESSION['login_at']=time();
+                $_SESSION['last_seen']=time();
+                $notice='Signed in successfully.';
             } else {
                 usleep(200000);
-                $error = 'Invalid credentials.';
+                $error='Invalid credentials.';
             }
         } elseif ($action === 'logout') {
             $_SESSION = [];
