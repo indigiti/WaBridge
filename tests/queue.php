@@ -61,4 +61,17 @@ eq($auth['id'],'schoolflow','SQLite API client should authenticate');
 eq($auth['sessions'],['test-device'],'Scope should be preserved');
 $db->exec("UPDATE api_clients SET active=0 WHERE id='schoolflow'");
 eq(client_auth(),null,'Revocation must take effect');
+
+$receiptJob=enqueue_message($db,$client,$sid,$to,'Receipt sample','receipt-test-00000001');
+record_provider_message($db,$receiptJob['id'],'provider-message-123');
+eq(update_receipt_from_event($db,'event-000001',['message_id'=>'provider-message-123','status'=>'delivered']),true,'Matching receipt must update');
+eq(update_receipt_from_event($db,'event-000002',['message_id'=>'unknown','status'=>'read']),false,'Unknown receipt must not associate with another job');
+$stmt=$db->prepare('SELECT state FROM message_receipts WHERE job_id=?');
+$stmt->execute([$receiptJob['id']]);
+eq($stmt->fetchColumn(),'delivered','Receipt must be delivered');
+audit_event('test_action','test_actor','test_target');
+eq((int)$db->query("SELECT COUNT(*) FROM audit_entries WHERE event='test_action'")->fetchColumn(),1,'Audit insert');
+$features=engine_capabilities();
+eq($features['qr_json']['enabled'],true,'Provider QR capability');
+eq($features['bulk']['enabled'],false,'Bulk not enabled without consent controls');
 echo "SQLite queue, idempotency, tenant scope, quota, worker state and token revocation: PASS\n";
