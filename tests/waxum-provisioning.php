@@ -12,7 +12,7 @@ $fixture=['admin_user'=>'testadmin','admin_password_hash'=>'testhash',
 file_put_contents($cfg,'<?php return '.var_export($fixture,true).';');
 register_shutdown_function(static function ()use($cfg,$settings,$dir) {
     @unlink($cfg);@unlink($settings);
-    @unlink($dir.'/waxum');@unlink($dir.'/waxum-auth.env');
+    @unlink($dir.'/waxum');@unlink($dir.'/waxum-auth.env');@unlink($dir.'/waxum-db.env');
     @rmdir($dir);
 });
 require $root.'/src/bootstrap.php';
@@ -52,6 +52,30 @@ if ($before['binary_archive_ready']) {
     if ((fileperms($dir.'/waxum')&0077)!==0)
         throw new RuntimeException('Staged binary permissions too broad');
 }
+// Rust-only SQLite test storage must require one explicit browser opt-in.
+if (waxum_test_database_mode()!=='not_configured')
+    throw new RuntimeException('Rust database mode was silently enabled');
+if (waxum_enable_test_sqlite()!=='enabled')
+    throw new RuntimeException('Could not enable explicit Rust testing database');
+if (waxum_enable_test_sqlite()!=='already_enabled')
+    throw new RuntimeException('Repeat explicit test-mode action must be idempotent');
+if (waxum_test_database_mode()!=='sqlite_testing')
+    throw new RuntimeException('Rust-only SQLite test mode not reported');
+$dbEnv=$dir.'/waxum-db.env';
+$expected='DATABASE_URL='.waxum_test_database_url()."\n";
+if (!str_contains((string)file_get_contents($dbEnv),$expected))
+    throw new RuntimeException('Incorrect fixed private Rust metadata database URL');
+if ((fileperms($dbEnv)&0077)!==0)
+    throw new RuntimeException('Private SQLite opt-in file permissions too broad');
+file_put_contents($dbEnv,"DATABASE_URL=mysql://private-config-not-to-be-replaced\n");
+clearstatcache(true,$dbEnv);
+try {
+    waxum_enable_test_sqlite();
+    throw new RuntimeException('Custom private Rust database settings were overwritten');
+} catch (InvalidArgumentException $expected) {}
+if (!str_contains((string)file_get_contents($dbEnv),'private-config-not-to-be-replaced'))
+    throw new RuntimeException('Existing private database configuration was corrupted');
+@unlink($dbEnv);
 $status=waxum_provision_status();
 if ($status['service_manager_configured']!==false||$status['runtime_started_by_dashboard']!==false)
     throw new RuntimeException('Dashboard falsely declared Rust running');
