@@ -1,0 +1,73 @@
+name: Build Cloudways-compatible Waxum
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: ubuntu:20.04
+      options: --user root
+    steps:
+      - name: Install toolchain and native build requirements (glibc 2.31)
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc g++ make pkg-config cmake libssl-dev libsqlite3-dev clang llvm binutils perl python3 file
+          ldd --version | head -1
+          test "$(ldd --version | head -1 | grep -o '[0-9]\+\.[0-9]\+$')" = '2.31'
+      - name: Fetch verified Waxum v0.16.1 source
+        run: |
+          git clone --depth 1 --branch v0.16.1 https://github.com/imtaqin/waxum.git waxum-src
+          test "$(git -C waxum-src rev-parse HEAD)" = '851bedf3189bda742433ef57bc06e75be590860b'
+      - name: Install pinned Rust nightly from Waxum rust-toolchain.toml
+        run: |
+          curl --fail --location --silent --show-error --retry 3 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly-2026-04-05
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustc" --version
+      - name: Compile against Ubuntu 20.04 glibc baseline
+        working-directory: waxum-src
+        env:
+          CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+          CARGO_BUILD_JOBS: '3'
+          CARGO_NET_RETRY: '4'
+          RUSTFLAGS: '-C target-cpu=x86-64'
+        run: |
+          "$HOME/.cargo/bin/cargo" build --release --locked
+          test -f target/release/waxum
+      - name: Audit ELF ABI, fail if glibc version is too recent
+        working-directory: waxum-src
+        run: |
+          file target/release/waxum
+          file target/release/waxum | grep -q 'ELF 64-bit.*x86-64'
+          readelf -W --version-info target/release/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > /tmp/waxum-glibc-versions
+          cat /tmp/waxum-glibc-versions
+          latest="$(tail -1 /tmp/waxum-glibc-versions)"
+          test -n "$latest"
+          test "$(printf '%s\n' 'GLIBC_2.31' "$latest" | sort -V | tail -1)" = 'GLIBC_2.31'
+          ! grep -qE 'GLIBC_2\.(3[2-9]|[4-9][0-9])' /tmp/waxum-glibc-versions
+          readelf -d target/release/waxum | grep NEEDED
+      - name: Package binary and generate provenance report
+        working-directory: waxum-src
+        run: |
+          mkdir -p ../out
+          tar -C target/release -czf ../out/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz waxum
+          sha256sum ../out/*.tar.gz > ../out/checksums.txt
+          {
+            echo 'UPSTREAM_REPO=imtaqin/waxum'
+            echo 'UPSTREAM_TAG=v0.16.1'
+            echo 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b'
+            echo 'BUILD_BASE=ubuntu:20.04'
+            echo 'MAX_GLIBC=2.31'
+            echo 'RUST_TOOLCHAIN=nightly-2026-04-05'
+          } > ../out/provenance.txt
+          cat ../out/checksums.txt
+      - name: Publish verified compatibility build (not deployed automatically)
+        uses: actions/upload-artifact@v4
+        with:
+          name: waxum-cloudways-glibc231-amd64
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
