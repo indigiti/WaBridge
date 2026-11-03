@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_loader.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/storage-migration.php';
 header('Cache-Control: no-store, private');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'self'; script-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
 if (!admin_authenticated()) { http_response_code(403);exit('Sign in to WaBridge first.'); }
 $notice=(string)($_SESSION['storage_flash']??'');
 unset($_SESSION['storage_flash']);
@@ -22,7 +23,7 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
         else $notice='Migration completed. '.$result['clients'].' API clients and '.$result['jobs'].' messages were preserved. The original SQLite file was retained as a private backup.';
         (new JsonStore())->audit('storage_json_migration','admin','json',['status'=>$result['status']]);
         $_SESSION['storage_flash']=$notice;
-        header('Location: storage-settings.php',true,303);
+        header('Location: /wabridge/storage',true,303);
         exit;
     } catch (Throwable $e) {
         $error=$e instanceof InvalidArgumentException ? $e->getMessage() : 'Migration could not complete: '.$e->getMessage();
@@ -45,10 +46,13 @@ if ($mode==='sqlite') {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Storage Settings · WaBridge</title>
-<link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3"></head>
-<body class="dashboard-page"><div class="site-shell">
-<header class="site-header"><a class="brand-lockup" href="./"><span class="brand-mark"><span class="brand-mark-inner">W</span></span><span class="brand-copy"><strong>Wa<span>Bridge</span></strong><small>MESSAGING INFRASTRUCTURE</small></span></a><a href="./" class="button button-ghost button-small">Back to dashboard</a></header>
+<link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
+<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script></head>
+<body class="dashboard-page"><?php ui_shell_start('storage'); ?>
 <main class="workspace">
+<?php ui_breadcrumb('Administration','Storage settings'); ?>
 <div class="workspace-top"><div><div class="eyebrow">WABRIDGE / DATA LAYER</div><h1>Storage settings</h1><p class="lead">Control low-volume testing storage in your browser. No SSH or external database is needed for JSON mode.</p></div></div>
 <?php if ($notice!==''): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
 <?php if ($error!==''): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
@@ -77,4 +81,4 @@ if ($mode==='sqlite') {
 <div class="panel-heading"><div><div class="eyebrow">PRODUCTION</div><h2>MariaDB-ready architecture</h2></div></div>
 <p class="panel-help">WaBridge now uses a storage facade so its REST API and dashboard do not depend directly on SQL. MariaDB remains the recommended production database, but its driver and migration are not yet implemented or certified. Waxum's separate Rust session storage is not changed by this setting.</p>
 </section>
-</main><footer class="site-footer">WaBridge · Private storage configuration</footer></div></body></html>
+</main><?php ui_shell_end(); ?></body></html>
