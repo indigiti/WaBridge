@@ -18,6 +18,8 @@ while ($count<$limit && ($job=claim_job($pdo))) {
         ]);
         if ($r['http']>=200 && $r['http']<300) {
             complete_job($pdo,$job['id'],'accepted',$r['http'],json_encode($r['data']));
+            $providerId=(string)($r['data']['message_id']??'');
+            if ($providerId!=='') record_provider_message($pdo,$job['id'],$providerId);
         } else {
             // Ambiguous upstream errors must NOT be retried automatically:
             // a message may have reached the gateway before the connection failed.
