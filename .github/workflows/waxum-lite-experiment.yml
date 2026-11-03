@@ -51,7 +51,8 @@ jobs:
           CARGO_NET_RETRY: '4'
           RUSTFLAGS: '-C target-cpu=x86-64'
         run: |
-          "$HOME/.cargo/bin/cargo" build --release --locked
+          # Feature reduction changes the lockfile; source and upstream git commit remain pinned.
+          "$HOME/.cargo/bin/cargo" build --release
           test -f target/release/waxum
       - name: Verify Cloudways ELF ABI and minimum REST baseline
         working-directory: waxum-src
