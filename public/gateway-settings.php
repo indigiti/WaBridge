@@ -153,9 +153,16 @@ $rustPrep=waxum_provision_status();
       </div>
       <section class="glass-panel workspace-section">
         <div class="panel-heading"><div><div class="eyebrow">STEP 2 / HOSTING</div><h2>Request web-only Rust activation</h2></div></div>
-        <p class="panel-help">Use Cloudways Support Chat or Help Desk from the Cloudways browser dashboard. Do not send tokens or private configuration through support chat.</p>
+        <p class="panel-help">Cloudways Support confirmed they can provision a Supervisor job when provided with a startup command. Copy this command to their support chat; it contains no secret.</p>
+        <?php $supervisorScript=dirname((new ReflectionFunction('store'))->getFileName(),2).'/cli/waxum-supervisor.sh'; ?>
+        <div class="field">
+          <label for="supervisor_command">Cloudways Supervisor command (absolute server path)</label>
+          <input id="supervisor_command" type="text" readonly spellcheck="false" value="<?= escape('/bin/bash '.escapeshellarg($supervisorScript)) ?>">
+          <span class="panel-help">Ask Support to run the process as the Cloudways application user, use this exact command, configure automatic restart on failure and reboot, and keep logs private.</span>
+        </div>
+        <p class="panel-help">The script loads your saved secret from the private environment file. The Supervisor configuration must also provide a tested <code>DATABASE_URL</code> for managed MySQL/MariaDB or PostgreSQL; it will refuse to silently use the default SQLite metadata database. Do not paste actual database credentials or tokens into support chat.</p>
         <div class="setup-steps">
-          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with a storage backend approved for WhatsApp session persistence outside the webroot. Keep TCP port 3451 blocked from public access while allowing PHP to connect locally at 127.0.0.1:3451. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
+          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with a storage backend approved for WhatsApp session persistence outside the webroot. Ensure TCP port 3451 is blocked from public access before starting the service, while allowing PHP to connect locally at 127.0.0.1:3451. Use the exact Supervisor command shown above and set DATABASE_URL privately for managed MariaDB/PostgreSQL. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
           <p><strong>If approved:</strong> Ask Cloudways to provide a secure method to deploy a pinned Waxum binary, configure its private token, and assign a supported supervisor. No user terminal should be necessary.</p>
           <p><strong>If declined:</strong> Same-server, web-only persistent Rust hosting is not feasible on this Cloudways plan. Use a managed external Rust host or the official WhatsApp Cloud API instead.</p>
         </div>
