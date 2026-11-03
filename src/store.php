@@ -2,10 +2,36 @@
 declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 
-/** SQLite is an embedded database: no external DB process needed. */
-function store(): PDO {
-    static $pdo;
-    if ($pdo instanceof PDO) return $pdo;
+require_once __DIR__ . '/json-store.php';
+/**
+ * Storage driver selection is private and immutable within each request.
+ * Existing SQLite installations stay on SQLite until explicitly switched.
+ * JSON is the default only for fresh testing installations.
+ */
+function storage_mode(): string {
+    $selector=dirname(__DIR__).'/runtime/storage-mode.json';
+    if (is_link($selector)) throw new RuntimeException('Storage selector symlink prohibited');
+    if (is_file($selector)) {
+        $raw=file_get_contents($selector);
+        $selected=json_decode((string)$raw,true,8,JSON_THROW_ON_ERROR);
+        if (!is_array($selected)||!in_array($selected['driver']??null,['json','sqlite'],true))
+            throw new RuntimeException('Invalid storage mode selector');
+        return $selected['driver'];
+    }
+    $configured=(string)(config()['storage_driver']??'');
+    if ($configured!=='') {
+        if (!in_array($configured,['json','sqlite'],true))
+            throw new RuntimeException('Storage driver unavailable; MariaDB requires a tested adapter');
+        return $configured;
+    }
+    return is_file(dirname(__DIR__).'/runtime/wabridge.sqlite') ? 'sqlite' : 'json';
+}
+function store(): PDO|JsonStore {
+    static $connection;
+    if ($connection instanceof PDO || $connection instanceof JsonStore) return $connection;
+    if (storage_mode()==='json') return $connection=new JsonStore();
+    // Legacy SQLite deployments continue unaffected until explicitly switched.
+    $pdo = null;
     $dir = dirname(__DIR__) . '/runtime';
     if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) throw new RuntimeException('Cannot create runtime directory');
     @chmod($dir, 0700);
@@ -60,18 +86,25 @@ function store(): PDO {
       FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_event_delivery_ready ON event_deliveries(state,next_at)');
-    return $pdo;
+    return $connection=$pdo;
 }
 function client_auth(): ?array {
     $auth = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? '');
     if (!preg_match('/\ABearer ([a-zA-Z0-9._~-]{24,256})\z/D', $auth, $matches)) return null;
     $hash = hash('sha256', $matches[1]);
-    $q = store()->prepare('SELECT id,sessions_json,per_minute FROM api_clients WHERE token_sha256=? AND active=1 AND (expires_at IS NULL OR expires_at>?) LIMIT 1');
-    $q->execute([$hash,time()]);
-    $managed=$q->fetch();
+    $db=store();
+    if ($db instanceof JsonStore) $managed=$db->clientByHash($hash);
+    else {
+        $q=$db->prepare('SELECT id,sessions_json,per_minute FROM api_clients WHERE token_sha256=? AND active=1 AND (expires_at IS NULL OR expires_at>?) LIMIT 1');
+        $q->execute([$hash,time()]);
+        $managed=$q->fetch();
+    }
     if ($managed) {
-        $usage=store()->prepare('UPDATE api_clients SET last_used_at=? WHERE id=?');
-        $usage->execute([time(),$managed['id']]);
+        if ($db instanceof JsonStore) $db->markClientUsed($managed['id']);
+        else {
+            $usage=$db->prepare('UPDATE api_clients SET last_used_at=? WHERE id=?');
+            $usage->execute([time(),$managed['id']]);
+        }
         $sessions=json_decode($managed['sessions_json'],true);
         return ['id'=>$managed['id'],'sessions'=>is_array($sessions)?$sessions:[],'limit'=>max(1,min(600,(int)$managed['per_minute']))];
     }
@@ -86,7 +119,8 @@ function client_auth(): ?array {
     }
     return null;
 }
-function limit_client(PDO $db, array $client): bool {
+function limit_client(PDO|JsonStore $db, array $client): bool {
+    if ($db instanceof JsonStore) return $db->quota((string)$client['id'],(int)$client['limit']);
     $bucket = intdiv(time(), 60);
     $db->beginTransaction();
     try {
@@ -98,9 +132,10 @@ function limit_client(PDO $db, array $client): bool {
         return $ok;
     } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
 }
-function enqueue_message(PDO $db, array $client, string $sid, string $to, string $body, string $idem): array {
+function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $to, string $body, string $idem): array {
     if (!$client['sessions'] || !in_array($sid, $client['sessions'], true)) throw new InvalidArgumentException('Session not assigned to this API client');
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D', $idem)) throw new InvalidArgumentException('Idempotency-Key required, 8–128 safe characters');
+    if ($db instanceof JsonStore) return $db->enqueue($client,$sid,$to,$body,$idem);
     $db->exec('BEGIN IMMEDIATE');
     try {
     // A bounded queue prevents runaway disk usage under gateway outages.
@@ -131,7 +166,8 @@ function enqueue_message(PDO $db, array $client, string $sid, string $to, string
         throw $e;
     }
 }
-function claim_job(PDO $db): ?array {
+function claim_job(PDO|JsonStore $db): ?array {
+    if ($db instanceof JsonStore) return $db->claim();
     $now = time();
     $db->exec('BEGIN IMMEDIATE');
     try {
@@ -145,27 +181,31 @@ function claim_job(PDO $db): ?array {
         $db->commit(); return $job ?: null;
     } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
 }
-function complete_job(PDO $db, string $id, string $state, int $code, string $response = ''): void {
+function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, string $response = ''): void {
+    if ($db instanceof JsonStore) { $db->complete($id,$state,$code,$response);return; }
     $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
     $s->execute([$state,$code,substr($response,0,2000),time(),$id]);
 }
 
 function audit_event(string $event,string $actor,string $target='',array $details=[]): void {
     // Never include plaintext messages, passwords, tokens or QR secrets.
+    if (store() instanceof JsonStore) { store()->audit($event,$actor,$target,$details); return; }
     $q=store()->prepare('INSERT INTO audit_entries(event,actor,target,at,details) VALUES(?,?,?,?,?)');
     $q->execute([$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
 }
-function record_provider_message(PDO $db,string $jobId,string $providerId): void {
+function record_provider_message(PDO|JsonStore $db,string $jobId,string $providerId): void {
     if ($providerId==='' || strlen($providerId)>200) return;
+    if ($db instanceof JsonStore) { $db->receiptSave($jobId,$providerId);return; }
     $q=$db->prepare("INSERT OR IGNORE INTO message_receipts(job_id,provider_id,state,observed_at) VALUES(?,?,'accepted',?)");
     $q->execute([$jobId,$providerId,time()]);
 }
-function update_receipt_from_event(PDO $db,string $eventId,array $event): bool {
+function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $event): bool {
     // Never guess a receipt's job. Require an exact upstream message ID.
     $messageId=(string)($event['message_id']??($event['data']['message_id']??''));
     $rawState=strtolower((string)($event['status']??($event['data']['status']??'')));
     $map=['sent'=>'sent','delivered'=>'delivered','read'=>'read','played'=>'read','failed'=>'failed'];
     if ($messageId==='' || !isset($map[$rawState])) return false;
+    if ($db instanceof JsonStore) return $db->receiptUpdate($messageId,$map[$rawState],$eventId);
     $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
     $stmt->execute([$map[$rawState],time(),$eventId,$messageId]);
     return $stmt->rowCount()===1;
