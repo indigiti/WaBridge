@@ -62,7 +62,7 @@ foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
           'public/gateway-settings.php'=>"ui_shell_start('gateway')",
           'public/qr.php'=>"ui_shell_start('qr',",
           'public/reports-view.php'=>"ui_shell_start('reports')",
-          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics')"] as $path=>$fragment) {
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
     $data=$contents($path);
     $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
 }
