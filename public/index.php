@@ -113,7 +113,21 @@ if ($authed) {
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#eef3f7">
   <title>WaBridge — Control Center</title>
-  <link rel="stylesheet" href="assets/app.css">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css">
+  <!-- Critical first paint: remains usable even if a CDN or proxy serves stale CSS. -->
+  <style>
+    :root{color-scheme:light;font-family:system-ui,sans-serif;color:#183653;background:#eef3f7}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#e9f1f2,#edf1f9);min-height:100vh;color:#183653}
+    .site-shell{min-height:100vh;display:flex;flex-direction:column}.site-header{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,5vw,66px)}
+    .brand-lockup{color:#174471;text-decoration:none;font-weight:700}.brand-copy{display:inline-flex;flex-direction:column}.brand-copy small{font-size:10px;letter-spacing:1px}
+    .auth-main{flex:1;display:grid;place-items:center;padding:20px}.auth-card{width:min(100%,505px);padding:38px;border:1px solid white;border-radius:25px;background:rgba(255,255,255,.8);box-shadow:0 20px 70px #21466d18;text-align:center}
+    .auth-form,.form-stack{display:grid;gap:16px;text-align:left}.field{display:grid;gap:6px}.field input,.field textarea,.client-form input{width:100%;min-height:46px;border:1px solid #cbd8e6;border-radius:12px;background:white;padding:12px}
+    .button{padding:12px 20px;border:0;border-radius:12px;cursor:pointer}.button-primary{color:white;background:#285a9d}.button-wide{width:100%}
+    .workspace{max-width:1280px;width:100%;margin:auto;padding:30px 20px}.stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    .workspace-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.glass-panel,.stat-card{background:rgba(255,255,255,.8);border:1px solid white;border-radius:20px;padding:24px;margin-bottom:20px}
+    .section-nav{display:flex;gap:20px;overflow:auto}.table-scroll{overflow-x:auto}.site-footer{padding:25px;text-align:center;font-size:12px;color:#667d92}
+    @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
+  </style>
 </head>
 <body class="<?= $authed ? 'dashboard-page' : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>
