@@ -127,7 +127,7 @@ if ($authed) {
     .section-nav{display:flex;gap:20px;overflow:auto}.table-scroll{overflow-x:auto}.site-footer{padding:25px;text-align:center;font-size:12px;color:#667d92}
     @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
   </style>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
 </head>
 <body class="<?= $authed ? 'dashboard-page' : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -208,6 +208,7 @@ if ($authed) {
           <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</div></article>
         </div>
       </section>
+      <?php if ($health!=='Ready'): ?><div class="notice notice-warning" role="status"><strong>WhatsApp engine offline.</strong> Rust gateway readiness is unavailable. QR pairing and device creation will remain unavailable until the gateway service is configured and running. The PHP dashboard and API management are separate from the WhatsApp connection.</div><?php endif; ?>
       <div class="workspace-two">
         <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
           <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true">↗</span></div>
@@ -227,7 +228,7 @@ if ($authed) {
           <form method="post" class="form-stack">
             <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="create">
             <div class="field"><label for="sn">New session name</label><input id="sn" name="session_name" maxlength="64" placeholder="e.g. school-01" required></div>
-            <button type="submit" class="button button-primary">Create session <span aria-hidden="true">→</span></button>
+            <button type="submit" class="button button-primary" <?= $health==='Ready' ? '' : 'disabled title="Rust gateway must be online first"' ?>>Create session <span aria-hidden="true">→</span></button>
           </form>
         </section>
       </div>
