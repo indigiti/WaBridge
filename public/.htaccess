@@ -10,7 +10,7 @@ RewriteRule ^_loader\.php$ - [F,L,NC]
 
 # Canonical HTML routes. Rewrite to PHP internally so POST and CSRF
 # remain unchanged and assets/API paths cannot be caught by a fallback.
-RewriteRule ^(overview)/?$ index.php [END,NC]
+RewriteRule ^(overview|sign-in)/?$ index.php [END,NC]
 RewriteRule ^(devices|sessions|messaging|api-applications)/?$ index.php?view=$1 [END,QSA,NC]
 RewriteRule ^messages/?$ messages.php [END,NC]
 RewriteRule ^gateway/?$ gateway-settings.php [END,NC]
@@ -20,6 +20,16 @@ RewriteRule ^diagnostics/?$ diagnostics-view.php [END,NC]
 RewriteRule ^reports/?$ reports-view.php [END,NC]
 RewriteRule ^api/diagnostics/?$ diagnostics.php [END,NC]
 RewriteRule ^api/reports/?$ reports.php [END,NC]
+
+# Only POST may invoke the sign-out controller; it requires CSRF validation
+# inside index.php and is not exposed as a logout-on-GET link.
+RewriteCond %{REQUEST_METHOD} ^POST$
+RewriteRule ^sign-out/?$ index.php [END,NC]
+
+# Direct legacy index GET navigations canonicalize to the application root.
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/+wabridge/index\.php(?:[?\s]) [NC]
+RewriteRule ^index\.php$ /wabridge/ [R=302,L,NE]
 
 # Legacy HTML GET links redirect to the pretty route. Never redirect
 # POSTs (a redirect could silently lose the body and CSRF token).
