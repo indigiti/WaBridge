@@ -1,0 +1,33 @@
+name: DigiOps release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP source
+        run: find . -name '*.php' -not -path './release/*' -print0 | xargs -0 -n1 php -l
+      - name: Validate SQLite and message queue
+        run: |
+          php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
+          php tests/smoke.php
+          php tests/queue.php
+      - name: Assemble DigiOps public/private payload
+        run: |
+          php tools/package-release.php
+          php tools/check-release-package.php
+          test -f release/public/.htaccess
+          find release -type f -name 'config.php' | grep -q . && exit 1 || true
+      - name: Upload release for DigiOps
+        uses: actions/upload-artifact@v4
+        with:
+          name: digiops-release
+          path: release/
+          retention-days: 14
+          include-hidden-files: true
+          if-no-files-found: error
