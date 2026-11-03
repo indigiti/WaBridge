@@ -5,11 +5,15 @@ function config(): array {
     if ($config === null) {
         $path = dirname(__DIR__) . '/config.php';
         if (!is_file($path)) {
-            throw new RuntimeException('Configuration missing. Copy config.example.php to config.php.');
+            throw new RuntimeException('PRIVATE_CONFIG_MISSING');
         }
         $config = require $path;
-        if (!is_array($config) || empty($config['gateway_token']) || empty($config['admin_password_hash'])) {
-            throw new RuntimeException('Missing gateway token or admin password hash.');
+        if (!is_array($config)) throw new RuntimeException('INVALID_PRIVATE_CONFIG');
+        if (empty($config['admin_password_hash']) || !is_string($config['admin_password_hash'])) {
+            throw new RuntimeException('ADMIN_CREDENTIALS_NOT_CONFIGURED');
+        }
+        if (empty($config['admin_user']) || !is_string($config['admin_user'])) {
+            throw new RuntimeException('ADMIN_USERNAME_NOT_CONFIGURED');
         }
     }
     return $config;
@@ -54,7 +58,10 @@ function permitted_session(string $sid): bool {
 }
 function gateway(string $method, string $path, ?array $payload = null): array {
     $conf = config();
-    $base = rtrim((string)$conf['gateway_url'], '/');
+    if (empty($conf['gateway_token']) || !is_string($conf['gateway_token'])) {
+        return ['http'=>503,'data'=>['error'=>'gateway_not_configured']];
+    }
+    $base = rtrim((string)($conf['gateway_url']??''), '/');
     // No user-provided URLs: only fixed internal path and validated session identifiers.
     if (!preg_match('~\A/(?:api/v1/[a-zA-Z0-9_/-]+|livez|readyz)\z~D', $path)) {
         throw new InvalidArgumentException('Invalid gateway path');
