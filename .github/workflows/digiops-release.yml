@@ -23,6 +23,11 @@ jobs:
           php tests/auth-session.php
       - name: JSON backend tests without a database connection
         run: php tests/json-store.php
+      - name: Message activity, verified receipts and browser worker checks
+        run: php tests/message-log.php
+      - name: Verify premium dashboard files and shell
+        run: |
+          php tests/dashboard-shell.php
       - name: Test private database-to-JSON cutover
         run: php tests/storage-migration.php
       - name: Fetch pinned Waxum v0.16.1 private AMD64 binary archive
