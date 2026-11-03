@@ -18,6 +18,7 @@ jobs:
           php tests/smoke.php
           php tests/queue.php
           php tests/loader.php
+          php tests/gateway-settings.php
       - name: Assemble DigiOps public/private payload
         run: |
           php tools/package-release.php
