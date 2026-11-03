@@ -12,4 +12,9 @@ return [
     'api_clients'=>[],
     'external_token_sha256'=>getenv('WABRIDGE_EXTERNAL_TOKEN_SHA256')?:'',
     'webhook_secret'=>getenv('WABRIDGE_WEBHOOK_SECRET')?:'',
+    // Registered outbound webhooks: configure only HTTPS endpoints controlled by clients.
+    // 'schoolflow'=>['url'=>'https://crm.example.com/webhooks/wabridge',
+    //   'secret'=>'long-random-hmac-secret-at-least-32-characters',
+    //   'sessions'=>['school-01'], 'events'=>['message','receipt']]
+    'webhook_subscribers'=>[],
 ];
