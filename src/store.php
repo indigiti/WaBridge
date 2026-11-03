@@ -28,6 +28,11 @@ function store(): PDO {
       client_id TEXT NOT NULL, bucket INTEGER NOT NULL, used INTEGER NOT NULL,
       PRIMARY KEY(client_id,bucket)
     )');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS api_clients (
+      id TEXT PRIMARY KEY, token_sha256 TEXT NOT NULL UNIQUE,
+      sessions_json TEXT NOT NULL, per_minute INTEGER NOT NULL DEFAULT 30,
+      active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL
+    )');
     $pdo->exec('CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY, session_id TEXT, event_type TEXT, received_at INTEGER NOT NULL, payload TEXT NOT NULL
     )');
@@ -38,6 +43,13 @@ function client_auth(): ?array {
     $auth = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? '');
     if (!preg_match('/\ABearer ([a-zA-Z0-9._~-]{24,256})\z/D', $auth, $matches)) return null;
     $hash = hash('sha256', $matches[1]);
+    $q = store()->prepare('SELECT id,sessions_json,per_minute FROM api_clients WHERE token_sha256=? AND active=1 LIMIT 1');
+    $q->execute([$hash]);
+    $managed=$q->fetch();
+    if ($managed) {
+        $sessions=json_decode($managed['sessions_json'],true);
+        return ['id'=>$managed['id'],'sessions'=>is_array($sessions)?$sessions:[],'limit'=>max(1,min(600,(int)$managed['per_minute']))];
+    }
     foreach ((array)(config()['api_clients'] ?? []) as $id => $client) {
         if (!is_array($client) || empty($client['token_sha256']) || !hash_equals((string)$client['token_sha256'], $hash)) continue;
         return ['id'=>(string)$id, 'sessions'=>(array)($client['sessions'] ?? []), 'limit'=>max(1,(int)($client['per_minute'] ?? 30))];
