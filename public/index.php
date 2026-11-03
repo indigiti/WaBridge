@@ -11,6 +11,7 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Tra
 $notice = '';
 $error = '';
 $issuedToken='';
+$queuedJobId='';
 $setupError='';
 try {
     $cfg = config();
@@ -50,6 +51,7 @@ try {
                     'text'=>$_POST['text'] ?? ''
                 ]);
                 $job = enqueue_message(store(), ['id'=>'admin','sessions'=>[$sid],'limit'=>10], $sid, $to, $text, 'admin-'.bin2hex(random_bytes(12)));
+                $queuedJobId=(string)$job['id'];
                 $notice = 'Message queued (ID '.$job['id'].'). Open Message activity to process this job or review its status; delivery is not confirmed.';
             } elseif ($action === 'create') {
                 // Match Waxum's session creation fields to the installed engine version.
@@ -259,7 +261,7 @@ if ($authed) {
         <div><div class="eyebrow">OPERATIONS / OVERVIEW</div><h1>Messaging control center</h1><p class="lead">Sessions, queued messages and gateway health in one workspace.</p></div>
         <span class="workspace-chip"><span class="live-dot"></span> Admin workspace</span>
       </div>
-      <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
+      <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?><?php if ($queuedJobId!==''): ?> <a href="messages.php?id=<?= rawurlencode($queuedJobId) ?>"><strong>Track this message →</strong></a><?php endif; ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <div class="console-hero-actions" aria-label="Quick actions">
         <a href="#messaging"><span aria-hidden="true">↗</span> Send test message</a>
