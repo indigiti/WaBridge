@@ -44,3 +44,30 @@ Waxum v0.16.1's upstream HTTP listener currently binds all interfaces at `0.0.0.
 6. Verify recovery after a planned Rust process restart and a server restart.
 
 Pinned source: https://github.com/imtaqin/waxum/releases/tag/v0.16.1
+
+
+## Supervisor command for Cloudways Support (after they approve private port controls)
+
+WaBridge now deploys a dedicated private startup script at:
+
+`private_html/wabridge/cli/waxum-supervisor.sh`
+
+Its precise **absolute** path appears in the authenticated WaBridge **Gateway Settings → Hosting** screen. Give Cloudways Support the command exactly as shown there. The generic command is:
+
+```sh
+/bin/bash /ABSOLUTE_CLOUDWAYS_APP_ROOT/private_html/wabridge/cli/waxum-supervisor.sh
+```
+
+This script:
+- loads the existing secret from the private `runtime/waxum-provision/waxum-auth.env` file;
+- requires `DATABASE_URL` from the Supervisor environment or the optional private `runtime/waxum-provision/waxum-db.env`;
+- refuses to start if the database is missing or not `mysql://` or `postgres://`, preventing an unexpected default SQLite metadata database;
+- creates writable private WhatsApp state storage in `runtime/waxum-data/whatsapp_sessions` and exports `WHATSAPP_STORAGE_PATH`;
+- changes to a persistent working directory and uses `exec` so Supervisord monitors the actual Rust process;
+- does not log the token or full database URI.
+
+**Cloudways Support action:** Configure this exact command, run as the Cloudways application owner with read access to the 0600 secret file, enable auto-restart on failure and reboot, and keep Supervisor logs private. Configure the managed MariaDB `DATABASE_URL` through a private provider-controlled secret/environment mechanism. Never share the value through chat.
+
+**Hard stop before startup:** The upstream Waxum v0.16.1 binary listens on `0.0.0.0:3451`. Even if PHP connects to `127.0.0.1:3451`, the binary is publicly exposed unless Cloudways blocks port 3451 from all public inbound traffic. Confirm firewall behavior first.
+
+**Separate backend caveat:** Even when Waxum metadata uses MariaDB, upstream linked-device storage can still use SQLite internally. Do not claim strict no-SQLite compliance until the upstream session-storage implementation is audited or replaced.
