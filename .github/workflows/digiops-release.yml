@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   package:
     runs-on: ubuntu-latest
@@ -34,6 +35,26 @@ jobs:
           mkdir -p waxum/releases
           cp waxum-build/waxum-v0.16.1-linux-amd64.tar.gz waxum/releases/
 
+      - name: Download verified Cloudways Waxum compatibility artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: waxum-cloudways-glibc231-amd64
+          run-id: 41712571137
+          repository: indigiti/WaBridge
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: waxum-compat-build
+      - name: Validate pinned Cloudways-compatible binary before packaging
+        run: |
+          test -f waxum-compat-build/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz
+          echo 'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e  waxum-compat-build/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz' | sha256sum --check
+          grep -qx 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b' waxum-compat-build/provenance.txt
+          grep -qx 'MAX_GLIBC=2.31' waxum-compat-build/provenance.txt
+          mkdir -p waxum-compat-check
+          tar -xzf waxum-compat-build/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz -C waxum-compat-check waxum
+          file waxum-compat-check/waxum | grep -q 'ELF 64-bit.*x86-64'
+          readelf -W --version-info waxum-compat-check/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > waxum-compat-check/versions
+          test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 waxum-compat-check/versions)" | sort -V | tail -1)" = 'GLIBC_2.31'
+          cp waxum-compat-build/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz waxum/releases/
       - name: Test browser provisioning and private staging
         run: php tests/waxum-provisioning.php
       - name: Verify private Rust supervisor startup command
