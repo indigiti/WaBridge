@@ -2,3 +2,6 @@
 # Replace /home/master/applications/<APP>/ and the PHP binary path.
 # Runs at most 40 queued jobs per minute. Do not start a server daemon through a web route.
 * * * * * /usr/bin/php /home/master/applications/<APP>/cli/worker.php 40 >> /home/master/applications/<APP>/runtime/worker.log 2>&1
+
+# Process signed outbound event callbacks. Each invocation is bounded.
+* * * * * /usr/bin/php /home/master/applications/<APP>/cli/webhooks.php 15 >> /home/master/applications/<APP>/runtime/events.log 2>&1
