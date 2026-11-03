@@ -9,6 +9,7 @@ $required=[
     'public/qr.php','public/diagnostics.php','public/reports.php',
     'public/api/v1/capabilities.php','public/api/v1/batches.php',
     'private/src/gateway-provider.php',
+    'private/src/gateway-settings.php','public/gateway-settings.php',
     'public/qr.php','public/api/send.php','public/api/v1/messages.php',
     'private/src/bootstrap.php','private/src/store.php',
     'private/cli/worker.php','private/cli/webhooks.php',
