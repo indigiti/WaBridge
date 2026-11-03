@@ -1,10 +1,42 @@
-Options -Indexes
+Options -Indexes -MultiViews
 DirectoryIndex index.php
+
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteBase /wabridge/
-RewriteRule ^_loader\.php$ - [F,L]
+
+# Private loader never available over HTTP.
+RewriteRule ^_loader\.php$ - [F,L,NC]
+
+# Canonical HTML routes. Rewrite to PHP internally so POST and CSRF
+# remain unchanged and assets/API paths cannot be caught by a fallback.
+RewriteRule ^(overview)/?$ index.php [END,NC]
+RewriteRule ^(devices|sessions|messaging|api-applications)/?$ index.php?view=$1 [END,QSA,NC]
+RewriteRule ^messages/?$ messages.php [END,NC]
+RewriteRule ^gateway/?$ gateway-settings.php [END,NC]
+RewriteRule ^storage/?$ storage-settings.php [END,NC]
+RewriteRule ^qr/?$ qr.php [END,NC]
+RewriteRule ^diagnostics/?$ diagnostics-view.php [END,NC]
+RewriteRule ^reports/?$ reports-view.php [END,NC]
+RewriteRule ^api/diagnostics/?$ diagnostics.php [END,NC]
+RewriteRule ^api/reports/?$ reports.php [END,NC]
+
+# Legacy HTML GET links redirect to the pretty route. Never redirect
+# POSTs (a redirect could silently lose the body and CSRF token).
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/+wabridge/messages\.php(?:[?\s]) [NC]
+RewriteRule ^messages\.php$ /wabridge/messages [R=302,L,NE]
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/+wabridge/gateway-settings\.php(?:[?\s]) [NC]
+RewriteRule ^gateway-settings\.php$ /wabridge/gateway [R=302,L,NE]
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/+wabridge/storage-settings\.php(?:[?\s]) [NC]
+RewriteRule ^storage-settings\.php$ /wabridge/storage [R=302,L,NE]
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/+wabridge/qr\.php(?:[?\s]) [NC]
+RewriteRule ^qr\.php$ /wabridge/qr [R=302,L,NE]
 </IfModule>
+
 <IfModule mod_headers.c>
 Header always set X-Content-Type-Options "nosniff"
 Header always set Referrer-Policy "no-referrer"
