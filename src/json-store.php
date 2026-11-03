@@ -175,6 +175,43 @@ final class JsonStore {
             return array_intersect_key($row,array_flip(['id','state','created_at','updated_at','response_code']));
         });
     }
+    /**
+     * Private admin telemetry; intentionally excludes message body,
+     * idempotency keys, and raw gateway payload.
+     */
+    public function adminMessages(int $limit=50): array {
+        $limit=max(1,min(200,$limit));
+        return $this->read(static function(array $state) use($limit):array {
+            $rows=[];
+            foreach ($state['jobs'] as $job) {
+                if (!is_array($job)) continue;
+                $receipt=null;
+                foreach ($state['receipts'] as $r) {
+                    if (($r['job_id']??null)===($job['id']??null)) { $receipt=$r;break; }
+                }
+                $rows[]=[
+                    'id'=>(string)($job['id']??''),
+                    'client_id'=>(string)($job['client_id']??''),
+                    'session_id'=>(string)($job['session_id']??''),
+                    'destination'=>(string)($job['destination']??''),
+                    'state'=>(string)($job['state']??'unknown'),
+                    'created_at'=>(int)($job['created_at']??0),
+                    'updated_at'=>(int)($job['updated_at']??0),
+                    'attempts'=>(int)($job['attempts']??0),
+                    'response_code'=>isset($job['response_code'])?(int)$job['response_code']:null,
+                    'error'=>(string)($job['error']??''),
+                    'receipt'=>$receipt===null ? null : [
+                        'provider_id'=>(string)($receipt['provider_id']??''),
+                        'state'=>(string)($receipt['state']??''),
+                        'observed_at'=>(int)($receipt['observed_at']??0),
+                    ],
+                ];
+            }
+            usort($rows,static fn(array $a,array $b):int =>
+                ($b['created_at']<=>$a['created_at']) ?: strcmp($b['id'],$a['id']));
+            return array_slice($rows,0,$limit);
+        });
+    }
     public function receipt(string $jobId): ?array {
         return $this->read(static function(array $s)use($jobId) {
             foreach ($s['receipts'] as $r) if ($r['job_id']===$jobId)
