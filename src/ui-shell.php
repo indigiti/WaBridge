@@ -10,7 +10,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
     $pageLabels=[
         'overview'=>'Overview', 'devices'=>'Connect device', 'sessions'=>'Linked sessions',
         'messaging'=>'Send message', 'messages'=>'Message activity',
-        'reports'=>'Reports', 'diagnostics'=>'Diagnostics', 'performance'=>'Performance',
+        'reports'=>'Reports', 'diagnostics'=>'Diagnostics', 'performance'=>'Performance', 'verification'=>'Verification',
         'api-applications'=>'API applications', 'gateway'=>'Gateway settings',
         'storage'=>'Storage settings', 'qr'=>'QR pairing'
     ];
@@ -20,7 +20,8 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
       'Workspace'=>[
         ['overview','/wabridge/','◫'], ['reports','/wabridge/reports','▥'],
         ['diagnostics','/wabridge/diagnostics','◉'],
-        ['performance','/wabridge/performance','▤']
+        ['performance','/wabridge/performance','▤'],
+        ['verification','/wabridge/verification','✓']
       ],
       'WhatsApp'=>[
         ['devices','/wabridge/devices','＋'], ['sessions','/wabridge/sessions','▦'],
