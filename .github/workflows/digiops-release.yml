@@ -31,6 +31,8 @@ jobs:
         run: php tests/json-store.php
       - name: Message activity, verified receipts and browser worker checks
         run: php tests/message-log.php
+      - name: Validate safe runtime performance telemetry
+        run: php tests/runtime-metrics.php
       - name: Render all glass console routes with authenticated menu
         run: php tests/ui-shell-render.php
       - name: Verify premium dashboard files and shell
