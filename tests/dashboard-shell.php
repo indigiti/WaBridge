@@ -17,7 +17,7 @@ $requireFragments($shell,[
     'function ui_shell_start','function ui_shell_end','function ui_breadcrumb',
     'class="console-body"','class="console-sidebar"','console-sidebar-toggle',
     'console-mobile-toggle','console-mobile-close','console-backdrop',
-    'console-nav-group','/wabridge/diagnostics','/wabridge/reports','/wabridge/performance',
+    'console-nav-group','/wabridge/diagnostics','/wabridge/reports','/wabridge/performance','/wabridge/verification',
     '/wabridge/messages','/wabridge/gateway','/wabridge/storage',
     '/wabridge/devices','/wabridge/sessions','/wabridge/messaging',
     '/wabridge/api-applications', 'admin_authenticated()', 'csrf()'
@@ -50,7 +50,178 @@ $requireFragments($htaccess,[
     'RewriteRule ^messages/?$','RewriteRule ^gateway/?$',
     'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
     'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
-    'RewriteRule ^performance/?$',
+    'RewriteRule ^performance/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/performance.php'=>"ui_shell_start('performance')",
+          'public/verification.php'=>"ui_shell_start('verification',",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,'RewriteRule ^reports/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,'RewriteRule ^performance/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,'RewriteRule ^verification/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/performance.php'=>"ui_shell_start('performance')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,'RewriteRule ^reports/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,'RewriteRule ^performance/?
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+],'Cloudways pretty-route configuration');
+if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Pretty URL redirects may affect POST requests');
+if(str_contains($htaccess,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API paths incorrectly routed through HTML');
+foreach (['public/storage-settings.php'=>"ui_shell_start('storage')",
+          'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+          'public/qr.php'=>"ui_shell_start('qr',",
+          'public/reports-view.php'=>"ui_shell_start('reports')",
+          'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',"] as $path=>$fragment) {
+    $data=$contents($path);
+    $requireFragments($data,[$fragment,'ui_shell_end()', 'ui_breadcrumb('],$path);
+}
+foreach (['public/reports.php','public/diagnostics.php'] as $path) {
+    $requireFragments($contents($path),['application/json','admin_authenticated()'],$path.' JSON compatibility');
+}
+echo "Shared glass dashboard, pretty URL table, responsive nav, safe JSON API and admin controls: PASS\n";
+,
     'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
     'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
     'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
