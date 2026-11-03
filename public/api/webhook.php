@@ -9,9 +9,13 @@ if ((int)($_SERVER['CONTENT_LENGTH']??0)>65536) { http_response_code(413);exit; 
 $raw=file_get_contents('php://input',false,null,0,65537);
 if (!is_string($raw)||strlen($raw)>65536) { http_response_code(413);exit; }
 $signature=(string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE']??'');
-$expected=hash_hmac('sha256',$raw,$secret);
-// Confirm sender signature shape from installed Waxum release.
-if (!hash_equals($expected,strtolower(preg_replace('/^sha256=/i','',$signature)))) { http_response_code(401);echo '{"error":"invalid_signature"}';exit; }
+$version=(string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE_VERSION']??'');
+$timestamp=(string)($_SERVER['HTTP_X_WEBHOOK_TIMESTAMP']??'');
+if ($version!=='v2' || !preg_match('/\A[0-9]{10,13}\z/D',$timestamp) || abs(time()-(int)$timestamp)>300) {
+    http_response_code(401);echo '{"error":"stale_or_unsupported_signature"}';exit;
+}
+$expected='sha256='.hash_hmac('sha256',$timestamp.'.'.$raw,$secret);
+if (!hash_equals($expected,$signature)) { http_response_code(401);echo '{"error":"invalid_signature"}';exit; }
 try {
     $event=json_decode($raw,true,24,JSON_THROW_ON_ERROR);
     if (!is_array($event)) throw new InvalidArgumentException('Invalid body');
