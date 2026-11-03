@@ -23,6 +23,7 @@ function waxum_provision_status(): array {
         'archive_checksum_valid'=>$verified,
         'auth_env_prepared'=>is_file($env)&&is_readable($env)&&!is_link($env),
         'binary_staged'=>is_file(waxum_provision_dir().'/waxum') && is_executable(waxum_provision_dir().'/waxum') && !is_link(waxum_provision_dir().'/waxum'),
+        'database_mode'=>waxum_test_database_mode(),
         'service_manager_configured'=>false,
         'runtime_started_by_dashboard'=>false,
     ];
@@ -48,6 +49,42 @@ function waxum_atomic_private_write(string $filename,string $contents): void {
     } finally {
         if (is_file($tmp)) @unlink($tmp);
     }
+}
+/**
+ * Explicit Rust-only testing mode. WaBridge PHP stays JSON-only, while
+ * Waxum's metadata and linked-device state are stored in private SQLite
+ * files. There is no managed database to configure for this test mode.
+ */
+function waxum_test_database_env(): string {
+    return waxum_provision_dir().'/waxum-db.env';
+}
+function waxum_test_database_url(): string {
+    return 'sqlite://'.dirname(__DIR__).'/runtime/waxum-data/waxum.db';
+}
+function waxum_test_database_mode(): string {
+    $file=waxum_test_database_env();
+    if (is_link($file)) throw new RuntimeException('Database environment symlink prohibited');
+    if (!is_file($file)) return 'not_configured';
+    if (!is_readable($file) || filesize($file)>4096)
+        throw new RuntimeException('Invalid private database environment file');
+    $raw=file_get_contents($file);
+    if (!is_string($raw)) throw new RuntimeException('Unreadable private database environment file');
+    $expected="# Waxum private metadata storage — TESTING ONLY. Not MariaDB.\n".
+        "DATABASE_URL=".waxum_test_database_url()."\n";
+    return hash_equals($expected,$raw) ? 'sqlite_testing' : 'custom_private';
+}
+function waxum_enable_test_sqlite(): string {
+    $mode=waxum_test_database_mode();
+    if ($mode==='sqlite_testing') return 'already_enabled';
+    if ($mode!=='not_configured')
+        throw new InvalidArgumentException('A private Rust database configuration already exists. Refusing to overwrite it.');
+    $url=waxum_test_database_url();
+    if (!str_starts_with($url,'sqlite:///'))
+        throw new RuntimeException('Private Rust SQLite path is invalid');
+    $contents="# Waxum private metadata storage — TESTING ONLY. Not MariaDB.\n".
+        "DATABASE_URL=".$url."\n";
+    waxum_atomic_private_write(waxum_test_database_env(),$contents);
+    return 'enabled';
 }
 /**
  * Extract the fixed verified Linux AMD64 Waxum release into a private
