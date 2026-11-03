@@ -1,0 +1,10 @@
+/config.php
+/.env
+/vendor/
+/runtime/
+/*.db
+/*.sqlite
+/*.sqlite3
+/whatsapp_sessions/
+/logs/
+.DS_Store
