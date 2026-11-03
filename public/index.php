@@ -69,15 +69,13 @@ try {
                 $ttl=max(1,min(365,(int)($_POST['client_ttl_days']??90)));
                 $expires=time()+$ttl*86400;
                 $issuedToken=rtrim(strtr(base64_encode(random_bytes(32)),'+/','-_'),'=');
-                $s=store()->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at,expires_at) VALUES(?,?,?,?,?,?)');
-                $s->execute([$id,hash('sha256',$issuedToken),json_encode($sessions,JSON_THROW_ON_ERROR),$rate,time(),$expires]);
+                storage_client_create(['id'=>$id,'token_sha256'=>hash('sha256',$issuedToken),'sessions_json'=>json_encode($sessions,JSON_THROW_ON_ERROR),'per_minute'=>$rate,'created_at'=>time(),'expires_at'=>$expires]);
                 $notice='Application created. Copy its API token now; it will not be shown again.';
                 audit_event('api_client_created','admin',$id,['sessions'=>$sessions,'per_minute'=>$rate]);
             } elseif ($action==='revoke_client') {
                 $id=(string)($_POST['client_id']??'');
                 if (!preg_match('/\A[a-zA-Z0-9_-]{3,64}\z/D',$id)) throw new InvalidArgumentException('Invalid application ID');
-                $s=store()->prepare('UPDATE api_clients SET active=0 WHERE id=?');
-                $s->execute([$id]);
+                storage_client_revoke($id);
                 $notice='API application access revoked.';
                 audit_event('api_client_revoked','admin',$id);
             }
@@ -100,8 +98,8 @@ $gatewayState = ['ready'=>false,'state'=>'not_configured','message'=>'Rust conne
 $stats = ['queued'=>0,'accepted'=>0,'needs_review'=>0];
 if ($authed) {
     try {
-        $apiClients=store()->query('SELECT id,sessions_json,per_minute,active,expires_at,last_used_at FROM api_clients ORDER BY id LIMIT 100')->fetchAll();
-        foreach (store()->query('SELECT state, COUNT(*) AS n FROM jobs GROUP BY state') as $row) { if (isset($stats[$row['state']])) $stats[$row['state']] = (int)$row['n']; }
+        $apiClients=storage_clients();
+        foreach (storage_queue_stats() as $row) { if (isset($stats[$row['state']])) $stats[$row['state']] = (int)$row['n']; }
         $gatewayState = gateway_diagnostics();
         $health = $gatewayState['ready'] ? 'Ready' : ucfirst(str_replace('_',' ', $gatewayState['state']));
         $sessions = $gatewayState['ready'] ? upstream_sessions() : [];
