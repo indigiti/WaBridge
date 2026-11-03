@@ -24,6 +24,17 @@ function store(): PDO {
       UNIQUE (client_id, idem)
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_ready ON jobs(state,next_at)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS message_receipts (
+      job_id TEXT NOT NULL, provider_id TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL, observed_at INTEGER NOT NULL, source_event_id TEXT,
+      PRIMARY KEY(job_id,provider_id),
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS audit_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL,
+      actor TEXT NOT NULL, target TEXT, at INTEGER NOT NULL, details TEXT NOT NULL DEFAULT "{}"
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_audit_at ON audit_entries(at)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS quotas (
       client_id TEXT NOT NULL, bucket INTEGER NOT NULL, used INTEGER NOT NULL,
       PRIMARY KEY(client_id,bucket)
@@ -131,4 +142,25 @@ function claim_job(PDO $db): ?array {
 function complete_job(PDO $db, string $id, string $state, int $code, string $response = ''): void {
     $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
     $s->execute([$state,$code,substr($response,0,2000),time(),$id]);
+}
+
+function audit_event(string $event,string $actor,string $target='',array $details=[]): void {
+    // Never include plaintext messages, passwords, tokens or QR secrets.
+    $q=store()->prepare('INSERT INTO audit_entries(event,actor,target,at,details) VALUES(?,?,?,?,?)');
+    $q->execute([$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
+}
+function record_provider_message(PDO $db,string $jobId,string $providerId): void {
+    if ($providerId==='' || strlen($providerId)>200) return;
+    $q=$db->prepare("INSERT OR IGNORE INTO message_receipts(job_id,provider_id,state,observed_at) VALUES(?,?,'accepted',?)");
+    $q->execute([$jobId,$providerId,time()]);
+}
+function update_receipt_from_event(PDO $db,string $eventId,array $event): bool {
+    // Never guess a receipt's job. Require an exact upstream message ID.
+    $messageId=(string)($event['message_id']??($event['data']['message_id']??''));
+    $rawState=strtolower((string)($event['status']??($event['data']['status']??'')));
+    $map=['sent'=>'sent','delivered'=>'delivered','read'=>'read','played'=>'read','failed'=>'failed'];
+    if ($messageId==='' || !isset($map[$rawState])) return false;
+    $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
+    $stmt->execute([$map[$rawState],time(),$eventId,$messageId]);
+    return $stmt->rowCount()===1;
 }
