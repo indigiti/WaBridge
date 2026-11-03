@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require dirname(__DIR__) . '/src/bootstrap.php';
+require dirname(__DIR__) . '/src/store.php';
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
@@ -36,9 +36,8 @@ try {
                     'to'=>$_POST['to'] ?? '',
                     'text'=>$_POST['text'] ?? ''
                 ]);
-                $r = gateway('POST', '/api/v1/sessions/'.$sid.'/messages/text', ['to'=>$to,'text'=>$text]);
-                $notice = $r['http'] >= 200 && $r['http'] < 300 ? 'Send accepted by gateway. Delivery is not confirmed.' : '';
-                if (!$notice) $error = 'Gateway rejected message (HTTP '.$r['http'].').';
+                $job = enqueue_message(store(), ['id'=>'admin','sessions'=>[$sid],'limit'=>10], $sid, $to, $text, 'admin-'.bin2hex(random_bytes(12)));
+                $notice = 'Message queued (ID '.$job['id'].'). Run the CLI worker to send; delivery is not confirmed.';
             } elseif ($action === 'create') {
                 // Match Waxum's session creation fields to the installed engine version.
                 $name = trim((string)($_POST['session_name'] ?? ''));
@@ -55,8 +54,10 @@ try {
 $authed = admin_authenticated();
 $sessions = [];
 $health = 'Not connected';
+$stats = ['queued'=>0,'accepted'=>0,'needs_review'=>0];
 if ($authed) {
     try {
+        foreach (store()->query('SELECT state, COUNT(*) AS n FROM jobs GROUP BY state') as $row) { if (isset($stats[$row['state']])) $stats[$row['state']] = (int)$row['n']; }
         $h = gateway('GET', '/readyz');
         $health = $h['http'] === 200 ? 'Ready' : 'Unavailable (HTTP '.$h['http'].')';
         $r = gateway('GET', '/api/v1/sessions');
@@ -90,7 +91,7 @@ if ($authed) {
 <div class="grid">
 <section class="panel"><div class="muted">Rust gateway</div><div class="metric"><?= escape($health) ?></div><span class="pill">Readiness probe</span></section>
 <section class="panel"><div class="muted">Device sessions</div><div class="metric"><?= count($sessions) ?></div><span class="pill">Reported by engine</span></section>
-<section class="panel"><div class="muted">Storage</div><div class="metric">SQLite</div><span class="pill">No external DB required</span></section>
+<section class="panel"><div class="muted">Message queue</div><div class="metric"><?= (int)$stats['queued'] ?> pending</div><span class="pill"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</span></section>
 </div>
 <div class="two">
 <section class="panel"><h2>Send test message</h2><form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
