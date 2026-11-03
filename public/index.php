@@ -52,7 +52,7 @@ try {
                 // Match Waxum's session creation fields to the installed engine version.
                 $name = trim((string)($_POST['session_name'] ?? ''));
                 if (!preg_match('/\A[a-zA-Z0-9_-]{1,64}\z/D', $name)) throw new InvalidArgumentException('Invalid session name.');
-                $r = gateway('POST', '/api/v1/sessions', ['name'=>$name]);
+                $r = gateway('POST', '/api/v1/sessions', ['id'=>$name,'name'=>$name]);
                 $notice = $r['http'] >= 200 && $r['http'] < 300 ? 'Session request accepted.' : '';
                 if (!$notice) $error = 'Could not create session (HTTP '.$r['http'].').';
             } elseif ($action==='new_client') {
@@ -90,17 +90,15 @@ $authed = admin_authenticated();
 $apiClients=[];
 $sessions = [];
 $health = 'Not connected';
+$gatewayState = ['ready'=>false,'state'=>'not_configured','message'=>'Rust connection not configured'];
 $stats = ['queued'=>0,'accepted'=>0,'needs_review'=>0];
 if ($authed) {
     try {
         $apiClients=store()->query('SELECT id,sessions_json,per_minute,active FROM api_clients ORDER BY id LIMIT 100')->fetchAll();
         foreach (store()->query('SELECT state, COUNT(*) AS n FROM jobs GROUP BY state') as $row) { if (isset($stats[$row['state']])) $stats[$row['state']] = (int)$row['n']; }
-        $h = gateway('GET', '/readyz');
-        $health = $h['http'] === 200 ? 'Ready' : 'Unavailable (HTTP '.$h['http'].')';
-        $r = gateway('GET', '/api/v1/sessions');
-        $data = $r['data'] ?? [];
-        $sessions = is_array($data) && array_is_list($data) ? $data : ($data['sessions'] ?? []);
-        if (!is_array($sessions)) $sessions = [];
+        $gatewayState = gateway_diagnostics();
+        $health = $gatewayState['ready'] ? 'Ready' : ucfirst(str_replace('_',' ', $gatewayState['state']));
+        $sessions = $gatewayState['ready'] ? upstream_sessions() : [];
     } catch (Throwable $e) {
         $error = 'Gateway unavailable; check Rust service and configuration.';
     }
@@ -198,7 +196,7 @@ if ($authed) {
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#overview">Overview</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
+        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
       </nav>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
         <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
@@ -208,7 +206,7 @@ if ($authed) {
           <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</div></article>
         </div>
       </section>
-      <?php if ($health!=='Ready'): ?><div class="notice notice-warning" role="status"><strong>WhatsApp engine offline.</strong> Rust gateway readiness is unavailable. QR pairing and device creation will remain unavailable until the gateway service is configured and running. The PHP dashboard and API management are separate from the WhatsApp connection.</div><?php endif; ?>
+      <?php if (!$gatewayState['ready']): ?><div class="notice notice-warning" role="status"><strong>WhatsApp gateway: <?= escape(str_replace('_',' ',(string)$gatewayState['state'])) ?>.</strong> <?= escape((string)$gatewayState['message']) ?> <a href="diagnostics.php">Open diagnostics</a></div><?php endif; ?>
       <div class="workspace-two">
         <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
           <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true">↗</span></div>
@@ -228,7 +226,7 @@ if ($authed) {
           <form method="post" class="form-stack">
             <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="create">
             <div class="field"><label for="sn">New session name</label><input id="sn" name="session_name" maxlength="64" placeholder="e.g. school-01" required></div>
-            <button type="submit" class="button button-primary" <?= $health==='Ready' ? '' : 'disabled title="Rust gateway must be online first"' ?>>Create session <span aria-hidden="true">→</span></button>
+            <button type="submit" class="button button-primary" <?= $gatewayState['ready'] ? '' : 'disabled title="Rust gateway must be online first"' ?>>Create session <span aria-hidden="true">→</span></button>
           </form>
         </section>
       </div>
