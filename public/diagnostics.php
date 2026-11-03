@@ -6,7 +6,7 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 if (!admin_authenticated()) { http_response_code(401); echo json_encode(['error'=>'unauthorized']); exit; }
 try {
-    $db=store()->query('SELECT 1')->fetchColumn()===1;
+    $db=(int)store()->query('SELECT 1')->fetchColumn()===1;
     $gateway=gateway_diagnostics();
     http_response_code($db?200:503);
     echo json_encode([
