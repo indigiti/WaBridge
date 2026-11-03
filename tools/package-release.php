@@ -37,6 +37,15 @@ removeDirectory($release);
 copyDirectory($root.'/public',$release.'/public');
 foreach (['src','cli'] as $folder) copyDirectory($root.'/'.$folder,$release.'/private/'.$folder);
 copy($root.'/config.example.php',$release.'/private/config.example.php');
+$waxumArchive=$root.'/waxum-build/waxum-v0.16.1-linux-amd64.tar.gz';
+if (is_file($waxumArchive)) {
+    $waxumTarget=$release.'/private/waxum/releases';
+    if (!is_dir($waxumTarget) && !mkdir($waxumTarget,0755,true) && !is_dir($waxumTarget))
+        throw new RuntimeException('Cannot create private upstream Waxum release folder');
+    if (!copy($waxumArchive,$waxumTarget.'/waxum-v0.16.1-linux-amd64.tar.gz'))
+        throw new RuntimeException('Cannot package verified private Waxum archive');
+}
+
 // Runtime config.php, SQLite, session secrets, logs and customer data are deliberately excluded.
 $metadata=[
     'schema'=>'WABRIDGE-BUILD/1',
