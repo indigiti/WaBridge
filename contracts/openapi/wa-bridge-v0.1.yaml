@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: WaBridge External Messaging API
+  version: 0.1.0
+  description: Initial PHP message proxy contract. Delivery is asynchronous and is not guaranteed by an HTTP success.
+servers:
+  - url: https://your-domain.example
+paths:
+  /api/send.php:
+    post:
+      summary: Send one consented text notification through a permitted WhatsApp session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id, to, text]
+              additionalProperties: false
+              properties:
+                session_id:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{1,64}$'
+                to:
+                  type: string
+                  pattern: '^[1-9][0-9]{7,14}$'
+                  description: International number without plus sign
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Gateway accepted request; NOT proof of WhatsApp delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Invalid API bearer token
+        '405':
+          description: Method not allowed
+        '413':
+          description: Payload too large
+        '422':
+          description: Invalid message
+        '503':
+          description: Gateway unavailable
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
