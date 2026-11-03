@@ -108,63 +108,146 @@ if ($authed) {
 ?>
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>WaBridge Control Center</title>
-<link rel="stylesheet" href="assets/app.css"></head>
-<body><main class="wrap">
-<header class="top"><div class="brand">Wa<span>Bridge</span> <span class="pill muted">Control Center</span></div>
-<?php if ($authed): ?><form method="post" class="inline"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="logout"><button class="secondary">Sign out</button></form><?php endif; ?>
-</header>
-<?php if ($notice): ?><div class="alert" role="status"><?= escape($notice) ?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert" role="alert"><?= escape($error) ?></div><?php endif; ?>
-<?php if ($setupError!==''): ?>
-<section class="panel" style="max-width:680px;margin:8vh auto"><h1>Private setup required</h1><p class="muted">The PHP application was deployed successfully. Administrator credentials must be configured in the private application folder before login is enabled.</p><div class="alert"><strong><?= escape($setupError) ?></strong></div><p>Create or update <code>private_html/wabridge/config.php</code> using <code>config.example.php</code> as a starting point. Set the administrator username and a secure password hash. Keep configuration and secrets outside <code>public_html</code>.</p><p class="muted">The Rust gateway can be connected separately after administrator login is configured. Never paste passwords or API tokens into the browser address bar, GitHub, or chat.</p></section>
-<?php elseif (!$authed): ?>
-<section class="panel" style="max-width:440px;margin:9vh auto"><h1>Welcome back</h1><p class="muted">Sign in to manage your WhatsApp gateway.</p>
-<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="login">
-<label for="u">Username</label><input id="u" name="username" autocomplete="username" required>
-<label for="p">Password</label><input id="p" type="password" name="password" autocomplete="current-password" required>
-<button type="submit">Sign in</button></form></section>
-<?php else: ?>
-<h1>Gateway overview</h1><p class="muted">Connected devices, messaging and gateway health, without a Node.js runtime.</p>
-<div class="grid">
-<section class="panel"><div class="muted">Rust gateway</div><div class="metric"><?= escape($health) ?></div><span class="pill">Readiness probe</span></section>
-<section class="panel"><div class="muted">Device sessions</div><div class="metric"><?= count($sessions) ?></div><span class="pill">Reported by engine</span></section>
-<section class="panel"><div class="muted">Message queue</div><div class="metric"><?= (int)$stats['queued'] ?> pending</div><span class="pill"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</span></section>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#eef3f7">
+  <title>WaBridge — Control Center</title>
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body class="<?= $authed ? 'dashboard-page' : 'auth-page' ?>">
+<div class="ambient ambient-one" aria-hidden="true"></div>
+<div class="ambient ambient-two" aria-hidden="true"></div>
+<div class="ambient ambient-three" aria-hidden="true"></div>
+<div class="site-shell">
+  <header class="site-header">
+    <a class="brand-lockup" href="./" aria-label="WaBridge home">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-mark-inner">W</span></span>
+      <span class="brand-copy"><strong>Wa<span>Bridge</span></strong><small>Messaging infrastructure</small></span>
+    </a>
+    <div class="header-right">
+      <span class="header-caption">Connect. Communicate. Automate.</span>
+      <?php if ($authed): ?>
+        <form method="post" class="header-logout">
+          <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+          <input type="hidden" name="action" value="logout">
+          <button class="button button-ghost button-small" type="submit">Sign out <span aria-hidden="true">↗</span></button>
+        </form>
+      <?php else: ?>
+        <span class="environment-chip"><span class="live-dot"></span> Secure console</span>
+      <?php endif; ?>
+    </div>
+  </header>
+  <main class="<?= $authed ? 'workspace' : 'auth-main' ?>" id="main-content">
+    <?php if ($setupError!==''): ?>
+      <section class="auth-card setup-card" aria-labelledby="setup-title">
+        <div class="card-symbol" aria-hidden="true">✦</div>
+        <div class="eyebrow">Setup required</div>
+        <h1 id="setup-title">A few details to begin.</h1>
+        <p class="intro">The WaBridge application is installed. Configure private administrator credentials to activate your control center.</p>
+        <div class="notice notice-warning" role="alert"><strong><?= escape($setupError) ?></strong></div>
+        <div class="setup-steps">
+          <p><strong>1.</strong> Create <code>private_html/wabridge/config.php</code> from <code>config.example.php</code>.</p>
+          <p><strong>2.</strong> Set your administrator username and secure password hash.</p>
+          <p><strong>3.</strong> Refresh this page to sign in. Rust connectivity can be configured separately.</p>
+        </div>
+        <p class="fine-print">Keep private settings and authentication secrets outside the public web directory.</p>
+      </section>
+    <?php elseif (!$authed): ?>
+      <section class="auth-card" aria-labelledby="login-title">
+        <div class="card-symbol" aria-hidden="true">✦</div>
+        <div class="eyebrow">Your secure workspace</div>
+        <h1 id="login-title">Welcome back.</h1>
+        <p class="intro">Sign in to manage your connections, messaging and integrations.</p>
+        <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
+        <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
+        <form method="post" class="auth-form">
+          <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+          <input type="hidden" name="action" value="login">
+          <div class="field">
+            <label for="u">Username</label>
+            <div class="input-holder"><span class="input-glyph" aria-hidden="true">◎</span><input id="u" name="username" autocomplete="username" placeholder="Your username" required autofocus></div>
+          </div>
+          <div class="field">
+            <label for="p">Password</label>
+            <div class="input-holder"><span class="input-glyph" aria-hidden="true">◇</span><input id="p" type="password" name="password" autocomplete="current-password" placeholder="Enter your password" required></div>
+          </div>
+          <button class="button button-primary button-wide" type="submit">Sign in <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="auth-footer"><span class="secure-mark">◈</span> Protected administrator access <span class="footer-separator">·</span> WaBridge</div>
+      </section>
+    <?php else: ?>
+      <div class="workspace-top">
+        <div><div class="eyebrow">WA BRIDGE / CONTROL CENTER</div><h1>Good to have you back.</h1><p class="lead">Your messaging infrastructure at a glance.</p></div>
+        <span class="workspace-chip"><span class="live-dot"></span> Admin workspace</span>
+      </div>
+      <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
+      <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
+      <nav class="section-nav" aria-label="Dashboard sections">
+        <a href="#overview">Overview</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
+      </nav>
+      <section id="overview" aria-labelledby="overview-title" class="workspace-section">
+        <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
+        <div class="stats-grid">
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true">◉</span><p class="stat-label">Gateway health</p><div class="stat-value <?= $health==='Ready' ? 'tone-success' : 'tone-amber' ?>"><?= escape($health) ?></div><div class="stat-foot">Rust gateway readiness</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true">▣</span><p class="stat-label">Linked sessions</p><div class="stat-value"><?= count($sessions) ?></div><div class="stat-foot">Reported by gateway</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted · <?= (int)$stats['needs_review'] ?> require review</div></article>
+        </div>
+      </section>
+      <div class="workspace-two">
+        <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
+          <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true">↗</span></div>
+          <p class="panel-help">Queue a message through a configured WhatsApp session. Submission is not proof of delivery.</p>
+          <form method="post" class="form-stack">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
+            <div class="field"><label for="sid">Session ID</label><input id="sid" name="session_id" maxlength="64" placeholder="e.g. school-01" required></div>
+            <div class="field"><label for="to">Recipient number</label><input id="to" name="to" maxlength="15" inputmode="numeric" placeholder="Country code + number, digits only" required></div>
+            <div class="field"><label for="txt">Message</label><textarea id="txt" name="text" rows="4" maxlength="2000" placeholder="Write your message..." required></textarea></div>
+            <button type="submit" class="button button-primary">Queue message <span aria-hidden="true">→</span></button>
+          </form>
+        </section>
+        <section class="glass-panel workspace-section" id="devices" aria-labelledby="device-title">
+          <div class="panel-heading"><div><div class="eyebrow">CONNECTIONS</div><h2 id="device-title">Connect a device</h2></div><span class="soft-icon" aria-hidden="true">▣</span></div>
+          <p class="panel-help">Create a session, then scan its QR code from WhatsApp Linked Devices.</p>
+          <div class="device-illustration" aria-hidden="true"><span class="device-orbit orbit-a"></span><span class="device-orbit orbit-b"></span><span class="device-core">▦</span></div>
+          <form method="post" class="form-stack">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="create">
+            <div class="field"><label for="sn">New session name</label><input id="sn" name="session_name" maxlength="64" placeholder="e.g. school-01" required></div>
+            <button type="submit" class="button button-primary">Create session <span aria-hidden="true">→</span></button>
+          </form>
+        </section>
+      </div>
+      <section class="glass-panel workspace-section" aria-labelledby="sessions-title">
+        <div class="panel-heading"><div><div class="eyebrow">CONNECTED ACCOUNTS</div><h2 id="sessions-title">WhatsApp sessions</h2></div><span class="subtle-tag">QR secured</span></div>
+        <div class="table-scroll"><table><thead><tr><th>Session</th><th>Status</th><th>Pairing</th></tr></thead><tbody>
+          <?php $visibleSessions=0; foreach ($sessions as $s): if (!is_array($s)) continue; $sid=(string)($s['id']??$s['session_id']??''); if (!permitted_session($sid)) continue; $visibleSessions++; ?>
+            <tr><td><strong><?= escape($sid) ?></strong></td><td><span class="subtle-tag"><?= escape((string)($s['status']??'Unknown')) ?></span></td><td><a class="table-link" href="qr.php?sid=<?= rawurlencode($sid) ?>">View QR ↗</a></td></tr>
+          <?php endforeach; ?>
+          <?php if ($visibleSessions===0): ?><tr><td colspan="3" class="empty-cell">No sessions to display. Connect a device once the Rust gateway is available.</td></tr><?php endif; ?>
+        </tbody></table></div>
+      </section>
+      <section class="glass-panel workspace-section" id="integrations" aria-labelledby="api-title">
+        <div class="panel-heading"><div><div class="eyebrow">DEVELOPER PLATFORM</div><h2 id="api-title">API applications</h2></div><span class="soft-icon" aria-hidden="true">{ }</span></div>
+        <p class="panel-help">Create scoped credentials for connected applications. Tokens are shown only once and stored as hashes.</p>
+        <?php if ($issuedToken!==''): ?><div class="notice notice-warning token-notice"><strong>Save your new API token now — it will not be shown again.</strong><input aria-label="New API token" readonly value="<?= escape($issuedToken) ?>"></div><?php endif; ?>
+        <form method="post" class="client-form">
+          <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="new_client">
+          <div class="field"><label for="appname">Application ID</label><input id="appname" name="client_id" maxlength="64" placeholder="e.g. schoolflow" required></div>
+          <div class="field"><label for="appsessions">Allowed session IDs</label><input id="appsessions" name="client_sessions" maxlength="255" placeholder="school-01,school-02" required></div>
+          <div class="field"><label for="apprate">Rate / minute</label><input id="apprate" name="client_rate" type="number" min="1" max="300" value="20" required></div>
+          <button type="submit" class="button button-primary">Create application <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="table-scroll"><table><thead><tr><th>Application</th><th>Allowed sessions</th><th>Limit</th><th>Status</th><th>Action</th></tr></thead><tbody>
+          <?php foreach ($apiClients as $client): ?><tr>
+            <td><strong><?= escape((string)$client['id']) ?></strong></td><td><?= escape((string)$client['sessions_json']) ?></td><td><?= (int)$client['per_minute'] ?>/min</td>
+            <td><span class="subtle-tag <?= (int)$client['active']===1 ? 'tag-success' : '' ?>"><?= (int)$client['active']===1 ? 'Active' : 'Revoked' ?></span></td>
+            <td><?php if ((int)$client['active']===1): ?><form method="post" class="inline-form"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="revoke_client"><input type="hidden" name="client_id" value="<?= escape((string)$client['id']) ?>"><button class="button button-small button-ghost" type="submit">Revoke</button></form><?php endif; ?></td>
+          </tr><?php endforeach; ?>
+          <?php if (!$apiClients): ?><tr><td colspan="5" class="empty-cell">No API applications yet. Add your first integration above.</td></tr><?php endif; ?>
+        </tbody></table></div>
+      </section>
+    <?php endif; ?>
+  </main>
+  <footer class="site-footer"><span>© WaBridge · Built for connected operations</span><span>Private workspace · Unofficial WhatsApp connections may be restricted.</span></footer>
 </div>
-<div class="two">
-<section class="panel"><h2>Send test message</h2><form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
-<label for="sid">Session ID</label><input id="sid" name="session_id" required maxlength="64" placeholder="my-device">
-<label for="to">Recipient (country code + number, digits only)</label><input id="to" name="to" required maxlength="15" inputmode="numeric" placeholder="919876543210">
-<label for="txt">Text message</label><textarea id="txt" name="text" rows="4" required maxlength="2000" placeholder="Your message"></textarea>
-<button type="submit">Send message</button></form></section>
-<section class="panel"><h2>Connect a new device</h2><p class="muted">Create a session, then use its QR route to link WhatsApp. QR images require authentication and must never be exposed as a public asset.</p>
-<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="create">
-<label for="sn">New session name</label><input id="sn" name="session_name" maxlength="64" required placeholder="school-01">
-<button type="submit">Create session</button></form></section>
-</div>
-<section class="panel"><h2>Devices</h2><div style="overflow-x:auto"><table><thead><tr><th>Session ID</th><th>Status</th><th>QR</th></tr></thead><tbody>
-<?php foreach ($sessions as $s): if (!is_array($s)) continue;
-    $sid=(string)($s['id']??$s['session_id']??'');
-    if (!permitted_session($sid)) continue; ?>
-<tr><td><?= escape($sid) ?></td><td><?= escape((string)($s['status']??'unknown')) ?></td><td><a href="qr.php?sid=<?= rawurlencode($sid) ?>">View QR</a></td></tr>
-<?php endforeach; ?>
-<?php if (!$sessions): ?><tr><td colspan="3" class="muted">No sessions reported. Verify gateway connection and create a session.</td></tr><?php endif; ?></tbody></table></div></section>
-<section class="panel"><h2>API applications and credentials</h2>
-<p class="muted">Each application can access only the listed WhatsApp sessions. API tokens are displayed once and stored as hashes.</p>
-<?php if ($issuedToken!==''): ?><div class="alert"><strong>New API token — copy now:</strong><input aria-label="New API token" readonly value="<?= escape($issuedToken) ?>"></div><?php endif; ?>
-<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="new_client">
-<div class="grid"><div><label for="appname">Application ID</label><input id="appname" name="client_id" required maxlength="64" placeholder="schoolflow"></div>
-<div><label for="appsessions">Session IDs, comma-separated</label><input id="appsessions" name="client_sessions" required maxlength="255" placeholder="school-01"></div>
-<div><label for="apprate">Requests per minute</label><input id="apprate" name="client_rate" type="number" min="1" max="300" value="20" required></div></div>
-<button type="submit">Create API application</button></form>
-<div style="overflow-x:auto"><table><thead><tr><th>Application</th><th>Allowed sessions</th><th>Rate / min</th><th>Status</th><th>Action</th></tr></thead><tbody>
-<?php foreach ($apiClients as $client): ?><tr><td><?= escape((string)$client['id']) ?></td><td><?= escape((string)$client['sessions_json']) ?></td><td><?= (int)$client['per_minute'] ?></td>
-<td><?= ((int)$client['active']===1) ? 'Active' : 'Revoked' ?></td><td>
-<?php if ((int)$client['active']===1): ?><form method="post" class="inline"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="revoke_client"><input type="hidden" name="client_id" value="<?= escape((string)$client['id']) ?>"><button class="secondary" type="submit">Revoke</button></form><?php endif; ?>
-</td></tr><?php endforeach; ?>
-<?php if (!$apiClients): ?><tr><td colspan="5" class="muted">No external applications yet.</td></tr><?php endif; ?>
-</tbody></table></div></section>
-<?php endif; ?>
-<footer class="footer">WaBridge v0.1 development build · Unofficial WhatsApp connections may be restricted. Use recipient consent.</footer>
-</main></body></html>
+</body></html>
