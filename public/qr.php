@@ -4,6 +4,7 @@ require dirname(__DIR__).'/src/bootstrap.php';
 header('Cache-Control: no-store');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
+header("Content-Security-Policy: default-src 'none'; sandbox");
 if (!admin_authenticated()) { http_response_code(403); exit('Forbidden'); }
 $sid=(string)($_GET['sid']??'');
 if (!permitted_session($sid)) { http_response_code(400); exit('Invalid session'); }
