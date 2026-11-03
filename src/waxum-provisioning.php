@@ -22,6 +22,7 @@ function waxum_provision_status(): array {
         'binary_archive_ready'=>$verified && in_array($arch,['x86_64','amd64'],true),
         'archive_checksum_valid'=>$verified,
         'auth_env_prepared'=>is_file($env)&&is_readable($env)&&!is_link($env),
+        'binary_staged'=>is_file(waxum_provision_dir().'/waxum') && is_executable(waxum_provision_dir().'/waxum') && !is_link(waxum_provision_dir().'/waxum'),
         'service_manager_configured'=>false,
         'runtime_started_by_dashboard'=>false,
     ];
@@ -46,6 +47,44 @@ function waxum_atomic_private_write(string $filename,string $contents): void {
         @chmod($filename,0600);
     } finally {
         if (is_file($tmp)) @unlink($tmp);
+    }
+}
+/**
+ * Extract the fixed verified Linux AMD64 Waxum release into a private
+ * application directory. This does NOT start the process or modify
+ * firewall/supervisor settings. Failure leaves the old binary unchanged.
+ */
+function waxum_stage_binary(): string {
+    $status=waxum_provision_status();
+    if (!$status['binary_archive_ready'])
+        throw new RuntimeException('Verified Linux AMD64 Waxum archive is unavailable for this server architecture');
+    if (!class_exists('PharData'))
+        throw new RuntimeException('Cloudways PHP PharData archive support is unavailable');
+    $dir=waxum_provision_dir();
+    $destination=$dir.'/waxum';
+    if (is_link($destination)) throw new RuntimeException('Binary symlink prohibited');
+    if (is_file($destination)) return 'already_staged';
+    $archive=dirname(__DIR__).'/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
+    $temp=$dir.'/extract-'.bin2hex(random_bytes(8));
+    if (!mkdir($temp,0700,true)) throw new RuntimeException('Unable to create private staging directory');
+    try {
+        $tar=new PharData($archive);
+        if (!isset($tar['waxum']) || !$tar['waxum']->isFile())
+            throw new RuntimeException('Verified Waxum archive has no executable file');
+        $tar->extractTo($temp,['waxum'],false);
+        $source=$temp.'/waxum';
+        if (is_link($source)||!is_file($source)||filesize($source)>104857600||filesize($source)<100000)
+            throw new RuntimeException('Invalid Waxum executable');
+        $fh=fopen($source,'rb');
+        if ($fh===false) throw new RuntimeException('Unreadable extracted executable');
+        try { $magic=fread($fh,4); } finally { fclose($fh); }
+        if ($magic!=="\x7FELF") throw new RuntimeException('Waxum executable is not an ELF binary');
+        if (!chmod($source,0700)) throw new RuntimeException('Unable to set executable permissions');
+        if (!rename($source,$destination)) throw new RuntimeException('Unable to stage Waxum executable');
+        return 'staged';
+    } finally {
+        if (is_file($temp.'/waxum')) @unlink($temp.'/waxum');
+        @rmdir($temp);
     }
 }
 /**
