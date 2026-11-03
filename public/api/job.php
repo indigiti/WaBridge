@@ -10,4 +10,7 @@ if (!preg_match('/\A[a-f0-9]{32}\z/D',$id)) { http_response_code(400);echo '{"er
 $q=store()->prepare('SELECT id,state,created_at,updated_at,response_code FROM jobs WHERE id=? AND client_id=?');
 $q->execute([$id,$c['id']]);$row=$q->fetch();
 if (!$row) { http_response_code(404);echo '{"error":"not_found"}';exit; }
-echo json_encode($row);
+$receipts=store()->prepare('SELECT provider_id,state,observed_at FROM message_receipts WHERE job_id=? LIMIT 1');
+$receipts->execute([$id]);
+$row['receipt']=$receipts->fetch()?:null;
+echo json_encode($row,JSON_UNESCAPED_SLASHES);
