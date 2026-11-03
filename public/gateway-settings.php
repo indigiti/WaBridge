@@ -43,6 +43,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $_SESSION['gateway_settings_notice']='Pinned Waxum executable '.$result.' privately. A Cloudways-approved service manager must still start and supervise it.';
             header('Location: gateway-settings.php',true,303);
             exit;
+        } elseif ($action==='sqlite_test') {
+            if (gateway_diagnostics()['ready'])
+                throw new InvalidArgumentException('Rust is already ready. Stop and back up the gateway before any storage change.');
+            if (($_POST['ack_test_sqlite'] ?? '') !== 'yes')
+                throw new InvalidArgumentException('Confirm Rust-only SQLite testing mode.');
+            $result=waxum_enable_test_sqlite();
+            audit_event('waxum_sqlite_test_storage_enabled','admin','private_waxum_metadata');
+            $_SESSION['gateway_settings_notice']='Rust SQLite testing mode '.$result.'. Ask Cloudways to restart the existing Supervisor job; do not regenerate the SUPERADMIN_TOKEN. PHP storage remains JSON.';
+            header('Location: gateway-settings.php',true,303);
+            exit;
         } else {
             throw new InvalidArgumentException('Unsupported action');
         }
@@ -116,7 +126,30 @@ $rustPrep=waxum_provision_status();
         <p class="panel-help"><strong>Separate storage prerequisite:</strong> PHP JSON mode does not replace Waxum's internal database and linked-device state storage. Cloudways must approve the actual Rust storage configuration before first startup.</p>
       </section>
       <section class="glass-panel workspace-section">
-        <div class="panel-heading"><div><div class="eyebrow">STEP 3 / CONNECTION</div><h2>Local Rust connection</h2></div></div>
+        <div class="panel-heading"><div><div class="eyebrow">STEP 3 / RUST DATABASE</div><h2>Choose Rust storage for testing</h2></div></div>
+        <p class="panel-help">Cloudways' Supervisor error <code>DATABASE_URL missing</code> is an intentional startup check. Waxum requires persistent storage even while WaBridge PHP uses JSON. For initial single-server testing, Waxum can create its own private SQLite files without a managed MySQL/MariaDB database.</p>
+        <p class="panel-help"><strong>Rust database mode:</strong>
+          <?= $rustPrep['database_mode']==='sqlite_testing' ? 'Private SQLite — testing only' : ($rustPrep['database_mode']==='custom_private' ? 'Existing private configuration (not modified)' : 'Not configured in private file') ?>
+        </p>
+        <?php if ($rustPrep['database_mode']==='not_configured'): ?>
+          <form method="post" class="form-stack">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+            <input type="hidden" name="action" value="sqlite_test">
+            <label>
+              <input type="checkbox" name="ack_test_sqlite" value="yes" required>
+              I understand Waxum will use SQLite files privately for initial testing, while WaBridge PHP continues using JSON. This is not a no-database implementation or a production HA setup.
+            </label>
+            <button class="button button-primary" type="submit">Enable private Rust SQLite test mode</button>
+          </form>
+        <?php elseif ($rustPrep['database_mode']==='sqlite_testing'): ?>
+          <p class="notice notice-success" role="status">Private Rust SQLite test configuration is saved. Ask Cloudways to restart the existing Supervisor job, then check Diagnostics. No token rotation is required.</p>
+        <?php else: ?>
+          <p class="panel-help">A private Rust database configuration already exists. This dashboard will not overwrite custom or production database settings.</p>
+        <?php endif; ?>
+        <p class="panel-help"><strong>Security:</strong> WhatsApp linked-device sessions also persist to private files. Back them up and protect them from public web access. Before production, review disk persistence, encryption, backup/recovery and the appropriate managed storage architecture.</p>
+      </section>
+      <section class="glass-panel workspace-section">
+        <div class="panel-heading"><div><div class="eyebrow">STEP 4 / CONNECTION</div><h2>Local Rust connection</h2></div></div>
         <p class="panel-help">For your same-server test the address is fixed to localhost, preventing this form from sending your gateway secret to an arbitrary external server.</p>
         <form method="post" class="form-stack" autocomplete="off">
           <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
@@ -148,11 +181,11 @@ $rustPrep=waxum_provision_status();
         <div class="stat-card">
           <p class="stat-label">Hosting requirement</p>
           <p class="stat-value">Supervisor</p>
-          <p class="stat-foot">Cloudways must approve a long-running Rust process. Saving settings does not install or start Rust.</p>
+          <p class="stat-foot">Rust process lifecycle is managed by Cloudways Supervisor. This dashboard does not control the Supervisor job.</p>
         </div>
       </div>
       <section class="glass-panel workspace-section">
-        <div class="panel-heading"><div><div class="eyebrow">STEP 2 / HOSTING</div><h2>Request web-only Rust activation</h2></div></div>
+        <div class="panel-heading"><div><div class="eyebrow">STEP 5 / SUPERVISOR</div><h2>Request web-only Rust activation</h2></div></div>
         <p class="panel-help">Cloudways Support confirmed they can provision a Supervisor job when provided with a startup command. Copy this command to their support chat; it contains no secret.</p>
         <?php $supervisorScript=dirname((new ReflectionFunction('store'))->getFileName(),2).'/cli/waxum-supervisor.sh'; ?>
         <div class="field">
@@ -160,9 +193,9 @@ $rustPrep=waxum_provision_status();
           <input id="supervisor_command" type="text" readonly spellcheck="false" value="<?= escape('/bin/bash '.escapeshellarg($supervisorScript)) ?>">
           <span class="panel-help">Ask Support to run the process as the Cloudways application user, use this exact command, configure automatic restart on failure and reboot, and keep logs private.</span>
         </div>
-        <p class="panel-help">The script loads your saved secret from the private environment file. The Supervisor configuration must also provide a tested <code>DATABASE_URL</code> for managed MySQL/MariaDB or PostgreSQL; it will refuse to silently use the default SQLite metadata database. Do not paste actual database credentials or tokens into support chat.</p>
+        <p class="panel-help">The script loads your saved secret from the private environment file. For testing, select <strong>Enable private Rust SQLite test mode</strong> above, then have Cloudways restart Supervisor. Alternatively, a tested <code>DATABASE_URL</code> for managed MySQL/MariaDB or PostgreSQL can be set securely. The script refuses to start without an explicitly selected database mode. Do not paste actual database credentials or tokens into support chat.</p>
         <div class="setup-steps">
-          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with a storage backend approved for WhatsApp session persistence outside the webroot. Ensure TCP port 3451 is blocked from public access before starting the service, while allowing PHP to connect locally at 127.0.0.1:3451. Use the exact Supervisor command shown above and set DATABASE_URL privately for managed MariaDB/PostgreSQL. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
+          <p><strong>Request:</strong> “Please confirm whether Cloudways Supervisord can run a single custom Rust executable for my Custom PHP application at stage.digiti.in/wabridge/, not a Laravel queue worker. I need the process supervised across reboot, with a storage backend approved for WhatsApp session persistence outside the webroot. Ensure TCP port 3451 is blocked from public access before starting the service, while allowing PHP to connect locally at 127.0.0.1:3451. Use the exact Supervisor command shown above and restart it after a verified database option is configured. Can this be provisioned entirely using your browser control panel or by your support team?”</p>
           <p><strong>If approved:</strong> Ask Cloudways to provide a secure method to deploy a pinned Waxum binary, configure its private token, and assign a supported supervisor. No user terminal should be necessary.</p>
           <p><strong>If declined:</strong> Same-server, web-only persistent Rust hosting is not feasible on this Cloudways plan. Use a managed external Rust host or the official WhatsApp Cloud API instead.</p>
         </div>
