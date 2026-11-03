@@ -38,12 +38,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $generatedToken=waxum_prepare_new_token();
             audit_event('waxum_credential_prepared','admin','localhost:3451');
             $notice='SUPERADMIN_TOKEN generated and saved privately. Copy it now if needed. The Rust process has NOT been started.';
-        } elseif ($action==='stage') {
-            $result=waxum_stage_binary();
-            audit_event('waxum_binary_staged','admin','v0.16.1',['status'=>$result]);
-            $_SESSION['gateway_settings_notice']='Pinned Waxum executable '.$result.' privately. A Cloudways-approved service manager must still start and supervise it.';
-            header('Location: /wabridge/gateway',true,303);
-            exit;
         } elseif ($action==='compat_install') {
             if (($_POST['ack_supervisor_stopped'] ?? '') !== 'yes')
                 throw new InvalidArgumentException('Confirm that Cloudways Supervisor has been stopped before replacing the Rust executable.');
@@ -121,18 +115,8 @@ $rustPrep=waxum_provision_status();
       </section>
       <section class="glass-panel workspace-section">
         <div class="panel-heading"><div><div class="eyebrow">STEP 2 / EXECUTABLE</div><h2>Prepare verified Waxum Rust binary</h2></div></div>
-        <p class="panel-help">DigiOps packages the pinned upstream Waxum v0.16.1 Linux AMD64 archive in the private release. The server is <?= escape((string)$rustPrep['platform_arch']) ?>. The downloaded archive is SHA-256 verified before it is included in DigiOps and reverified before private extraction.</p>
-        <p class="panel-help"><strong>Archive:</strong> <?= $rustPrep['archive_checksum_valid'] ? 'Verified' : 'Missing or unverified' ?> ·
-        <strong>Executable:</strong> <?= $rustPrep['binary_staged'] ? 'Privately staged' : 'Not staged' ?> ·
-        <strong>Service manager:</strong> Not provisioned through WaBridge</p>
-        <?php if ($rustPrep['binary_archive_ready'] && !$rustPrep['binary_staged']): ?>
-          <form method="post">
-            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
-            <input type="hidden" name="action" value="stage">
-            <button class="button button-primary" type="submit">Prepare executable in private runtime</button>
-          </form>
-        <?php endif; ?>
-        <p class="panel-help">Preparation extracts a fixed, checksum-pinned ELF binary. It does not execute it. Cloudways must explicitly support running and supervising the binary; PHP cannot safely make a permanent service by spawning a detached process from this webpage.</p>
+        <p class="panel-help">DigiOps includes only the checksum-verified Cloudways-compatible Waxum v0.16.1 build (glibc 2.31 baseline). Original upstream glibc 2.38/2.39 archives are excluded to save deployment space and prevent incompatible installation.</p>
+        <p class="panel-help"><strong>Cloudways archive:</strong> <?= $rustPrep['compat_archive_verified'] ? 'Verified' : 'Missing or unverified' ?> · <strong>Runtime executable:</strong> <?= $rustPrep['compat_binary_installed'] ? 'Compatible installed' : 'Not verified installed' ?></p>
         <div class="setup-steps">
           <p><strong>Cloudways compatibility:</strong> The standard Waxum v0.16.1 executable needs glibc 2.38/2.39, but your Cloudways server reports glibc 2.36 (x86_64). The separate source-pinned compatibility build was compiled against glibc 2.31 and passed an ELF ABI audit.</p>
           <p><strong>Compatible package:</strong> <?= $rustPrep['compat_archive_verified'] ? 'SHA-256 verified and available in private release' : 'Not present or checksum mismatch' ?> ·
@@ -152,7 +136,7 @@ $rustPrep=waxum_provision_status();
           <?php endif; ?>
         </div>
 
-        <div class="notice notice-warning" role="note"><strong>Do not start while port 3451 is publicly accessible.</strong> The pinned upstream Waxum HTTP server binds all interfaces, not localhost-only. Cloudways must block public ingress and provide an approved supervisor before process startup.</div>
+        <div class="notice notice-warning" role="note"><strong>Do not start while port 3451 is publicly accessible.</strong> The pinned Cloudways-compatible Waxum HTTP server binds all interfaces, not localhost-only. Cloudways must block public ingress and provide an approved supervisor before process startup.</div>
         <p class="panel-help"><strong>Separate storage prerequisite:</strong> PHP JSON mode does not replace Waxum's internal database and linked-device state storage. Cloudways must approve the actual Rust storage configuration before first startup.</p>
       </section>
       <section class="glass-panel workspace-section">
