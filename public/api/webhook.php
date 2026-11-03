@@ -25,4 +25,9 @@ try {
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D',$eventId)) $eventId=hash('sha256',$raw);
     storage_event_accept($eventId,substr($sid,0,64),$type,$raw,$event,(array)(config()['webhook_subscribers']??[]));
     http_response_code(202);echo '{"accepted":true}';
-} catch (Throwable $e) { http_response_code(422);echo '{"error":"invalid_payload"}'; }
+} catch (JsonException|InvalidArgumentException $e) {
+    http_response_code(422);echo '{"error":"invalid_payload"}';
+} catch (Throwable $e) {
+    error_log('WaBridge inbound webhook storage failure '.get_class($e));
+    http_response_code(503);echo '{"error":"storage_unavailable"}';
+}
