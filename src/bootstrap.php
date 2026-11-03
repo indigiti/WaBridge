@@ -36,7 +36,14 @@ function assert_csrf(): void {
 }
 function admin_authenticated(): bool {
     start_admin_session();
-    return ($_SESSION['admin'] ?? false) === true;
+    if (($_SESSION['admin'] ?? false) !== true) return false;
+    $now=time();
+    if ($now-(int)($_SESSION['last_seen']??0)>3600 || $now-(int)($_SESSION['login_at']??0)>28800) {
+        unset($_SESSION['admin'],$_SESSION['last_seen'],$_SESSION['login_at']);
+        return false;
+    }
+    $_SESSION['last_seen']=$now;
+    return true;
 }
 function escape(string $v): string { return htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function valid_session_id(string $v): bool { return preg_match('/\A[a-zA-Z0-9_-]{1,64}\z/D', $v) === 1; }
