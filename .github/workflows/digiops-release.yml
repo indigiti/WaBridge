@@ -12,13 +12,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate PHP source
         run: find . -name '*.php' -not -path './release/*' -print0 | xargs -0 -n1 php -l
-      - name: Validate SQLite and message queue
+      - name: Validate SQLite legacy and message queue
         run: |
           php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
           php tests/smoke.php
           php tests/queue.php
           php tests/loader.php
           php tests/gateway-settings.php
+      - name: JSON backend tests without a database connection
+        run: php tests/json-store.php
       - name: Assemble DigiOps public/private payload
         run: |
           php tools/package-release.php
