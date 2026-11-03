@@ -29,6 +29,44 @@ function storage_queue_stats(): array {
     if ($db instanceof JsonStore) return $db->stats();
     return $db->query('SELECT state,COUNT(*) AS n FROM jobs GROUP BY state')->fetchAll();
 }
+/**
+ * Read-only admin activity log across PHP JSON and legacy SQLite.
+ * Full recipient values are used only server-side to form a masked label.
+ * Neither message bodies nor raw gateway responses enter this projection.
+ */
+function storage_admin_messages(int $limit=50): array {
+    $limit=max(1,min(200,$limit));
+    $db=store();
+    if ($db instanceof JsonStore) return $db->adminMessages($limit);
+    $q=$db->prepare('SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.updated_at,j.attempts,j.response_code,j.error,
+        r.provider_id,r.state AS receipt_state,r.observed_at AS receipt_observed_at
+        FROM jobs j LEFT JOIN message_receipts r ON r.job_id=j.id
+        ORDER BY j.created_at DESC, j.id DESC LIMIT ?');
+    $q->bindValue(1,$limit,PDO::PARAM_INT);
+    $q->execute();
+    $rows=[];
+    foreach ($q->fetchAll() as $job) {
+        $receipt=isset($job['provider_id']) ? [
+            'provider_id'=>(string)$job['provider_id'],
+            'state'=>(string)($job['receipt_state']??''),
+            'observed_at'=>(int)($job['receipt_observed_at']??0),
+        ] : null;
+        $rows[]=[
+            'id'=>(string)$job['id'],
+            'client_id'=>(string)$job['client_id'],
+            'session_id'=>(string)$job['session_id'],
+            'destination'=>(string)$job['destination'],
+            'state'=>(string)$job['state'],
+            'created_at'=>(int)$job['created_at'],
+            'updated_at'=>(int)$job['updated_at'],
+            'attempts'=>(int)$job['attempts'],
+            'response_code'=>$job['response_code']===null?null:(int)$job['response_code'],
+            'error'=>(string)($job['error']??''),
+            'receipt'=>$receipt,
+        ];
+    }
+    return $rows;
+}
 function storage_job_status(string $jobId,string $clientId): ?array {
     $db=store();
     if ($db instanceof JsonStore) {
