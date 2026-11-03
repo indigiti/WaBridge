@@ -64,6 +64,14 @@ function limit_client(PDO $db, array $client): bool {
 function enqueue_message(PDO $db, array $client, string $sid, string $to, string $body, string $idem): array {
     if (!$client['sessions'] || !in_array($sid, $client['sessions'], true)) throw new InvalidArgumentException('Session not assigned to this API client');
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D', $idem)) throw new InvalidArgumentException('Idempotency-Key required, 8–128 safe characters');
+    // A bounded queue prevents runaway disk usage under gateway outages.
+    $existing = $db->prepare('SELECT id FROM jobs WHERE client_id=? AND idem=?');
+    $existing->execute([$client['id'],$idem]);
+    if (!$existing->fetchColumn()) {
+        $pending = $db->prepare("SELECT COUNT(*) FROM jobs WHERE client_id=? AND state IN ('queued','processing')");
+        $pending->execute([$client['id']]);
+        if ((int)$pending->fetchColumn() >= 1000) throw new RuntimeException('Queue capacity exhausted for client');
+    }
     $id = bin2hex(random_bytes(16)); $now = time();
     $stmt = $db->prepare('INSERT OR IGNORE INTO jobs(id,client_id,session_id,destination,body,idem,next_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)');
     $stmt->execute([$id,$client['id'],$sid,$to,$body,$idem,$now,$now,$now]);
