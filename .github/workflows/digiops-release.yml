@@ -32,16 +32,6 @@ jobs:
           php tests/dashboard-shell.php
       - name: Test private database-to-JSON cutover
         run: php tests/storage-migration.php
-      - name: Fetch pinned Waxum v0.16.1 private AMD64 binary archive
-        run: |
-          mkdir -p waxum-build
-          curl --fail --location --silent --show-error --retry 3 --max-time 120 \
-            "https://github.com/imtaqin/waxum/releases/download/v0.16.1/waxum-0.16.1-linux-amd64.tar.gz" \
-            -o waxum-build/waxum-v0.16.1-linux-amd64.tar.gz
-          echo "2a8d5d9f89f600a413854b8823db3f9892e26c81ff876398716b56d21e863a61  waxum-build/waxum-v0.16.1-linux-amd64.tar.gz" | sha256sum --check
-          mkdir -p waxum/releases
-          cp waxum-build/waxum-v0.16.1-linux-amd64.tar.gz waxum/releases/
-
       - name: Download verified Cloudways Waxum compatibility artifact
         uses: actions/download-artifact@v4
         with:
