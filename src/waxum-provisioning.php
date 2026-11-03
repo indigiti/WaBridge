@@ -23,6 +23,8 @@ function waxum_provision_status(): array {
         'archive_checksum_valid'=>$verified,
         'auth_env_prepared'=>is_file($env)&&is_readable($env)&&!is_link($env),
         'binary_staged'=>is_file(waxum_provision_dir().'/waxum') && is_executable(waxum_provision_dir().'/waxum') && !is_link(waxum_provision_dir().'/waxum'),
+        'compat_archive_verified'=>waxum_compat_archive_verified(),
+        'compat_binary_installed'=>waxum_compat_installed(),
         'database_mode'=>waxum_test_database_mode(),
         'service_manager_configured'=>false,
         'runtime_started_by_dashboard'=>false,
@@ -129,6 +131,97 @@ function waxum_stage_binary(): string {
     } finally {
         if (is_file($temp.'/waxum')) @unlink($temp.'/waxum');
         @rmdir($temp);
+    }
+}
+/**
+ * Verified compatibility build compiled from Waxum v0.16.1 upstream commit
+ * 851bedf3189bda742433ef57bc06e75be590860b inside Ubuntu 20.04.
+ * GitHub CI checks that the executable uses no symbol newer than glibc 2.31.
+ * The exact tarball digest is pinned both here and in the DigiOps workflow.
+ */
+function waxum_compat_archive_path(): string {
+    return dirname(__DIR__).'/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+}
+function waxum_compat_archive_sha(): string {
+    return 'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e';
+}
+function waxum_compat_archive_verified(): bool {
+    $path=waxum_compat_archive_path();
+    return is_file($path) && !is_link($path) && is_readable($path) &&
+        hash_equals(waxum_compat_archive_sha(),(string)hash_file('sha256',$path));
+}
+function waxum_compat_marker_path(): string {
+    return waxum_provision_dir().'/waxum-compat-installed.json';
+}
+function waxum_compat_installed(): bool {
+    $dir=waxum_provision_dir();
+    $path=$dir.'/waxum';
+    $marker=waxum_compat_marker_path();
+    if (is_link($path)||is_link($marker)||!is_file($path)||!is_executable($path)||!is_file($marker))
+        return false;
+    $raw=file_get_contents($marker);
+    if (!is_string($raw)||strlen($raw)>1024) return false;
+    $data=json_decode($raw,true);
+    return is_array($data) &&
+        ($data['source_archive_sha256']??'')===waxum_compat_archive_sha() &&
+        is_string($data['binary_sha256']??null) &&
+        hash_equals($data['binary_sha256'],(string)hash_file('sha256',$path));
+}
+function waxum_install_compat_binary(): string {
+    if (!in_array(php_uname('m'),['x86_64','amd64'],true))
+        throw new RuntimeException('This compatibility binary is only for Linux AMD64');
+    if (!waxum_compat_archive_verified())
+        throw new RuntimeException('Cloudways compatibility archive missing or checksum invalid');
+    if (!class_exists('PharData'))
+        throw new RuntimeException('PHP archive extraction is unavailable');
+    $root=dirname(__DIR__).'/runtime';
+    $dir=waxum_provision_dir();
+    if (is_link($root)||is_link($dir)||!is_dir($root)||!is_dir($dir))
+        throw new RuntimeException('Private runtime directory is unavailable');
+    $target=$dir.'/waxum';
+    $backup=$dir.'/waxum.previous-incompatible.bak';
+    if (is_link($target)||is_link($backup)||is_link(waxum_compat_marker_path()))
+        throw new RuntimeException('Executable backup or marker symlink prohibited');
+    if (waxum_compat_installed()) return 'already_installed';
+    $scratch=$dir.'/compat-extract-'.bin2hex(random_bytes(8));
+    if (!mkdir($scratch,0700)) throw new RuntimeException('Cannot create private executable staging area');
+    try {
+        $tar=new PharData(waxum_compat_archive_path());
+        if (!isset($tar['waxum']) || !$tar['waxum']->isFile())
+            throw new RuntimeException('Verified compatibility archive does not contain Waxum');
+        $tar->extractTo($scratch,['waxum'],false);
+        $src=$scratch.'/waxum';
+        if (is_link($src)||!is_file($src)||filesize($src)<100000||filesize($src)>104857600)
+            throw new RuntimeException('Compatibility executable invalid');
+        $fh=fopen($src,'rb');
+        if ($fh===false) throw new RuntimeException('Cannot examine compatibility executable');
+        try { $magic=fread($fh,4); } finally { fclose($fh); }
+        if ($magic!=="\x7FELF") throw new RuntimeException('Compatibility executable is not ELF');
+        if (!chmod($src,0700)) throw new RuntimeException('Cannot protect executable');
+        // Keep the previously deployed executable as a non-executable
+        // private recovery copy, never touching Waxum session storage.
+        if (is_file($target)&&!is_file($backup)) {
+            $tmpBackup=$scratch.'/previous.bak';
+            if (!copy($target,$tmpBackup)||!chmod($tmpBackup,0600)||!rename($tmpBackup,$backup))
+                throw new RuntimeException('Unable to back up previous Rust executable');
+        }
+        $binaryHash=(string)hash_file('sha256',$src);
+        if (!rename($src,$target))
+            throw new RuntimeException('Unable to atomically replace Rust executable');
+        $metadata=json_encode([
+            'upstream_version'=>'v0.16.1',
+            'upstream_commit'=>'851bedf3189bda742433ef57bc06e75be590860b',
+            'glibc_max'=>'2.31',
+            'source_archive_sha256'=>waxum_compat_archive_sha(),
+            'binary_sha256'=>$binaryHash,
+        ],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES)."\n";
+        waxum_atomic_private_write(waxum_compat_marker_path(),$metadata);
+        return 'installed';
+    } finally {
+        foreach (['waxum','previous.bak'] as $name) {
+            if (is_file($scratch.'/'.$name)) @unlink($scratch.'/'.$name);
+        }
+        @rmdir($scratch);
     }
 }
 /**
