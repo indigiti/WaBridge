@@ -19,6 +19,7 @@ RewriteRule ^qr/?$ qr.php [END,NC]
 RewriteRule ^diagnostics/?$ diagnostics-view.php [END,NC]
 RewriteRule ^reports/?$ reports-view.php [END,NC]
 RewriteRule ^performance/?$ performance.php [END,NC]
+RewriteRule ^verification/?$ verification.php [END,NC]
 RewriteRule ^api/diagnostics/?$ diagnostics.php [END,NC]
 RewriteRule ^api/reports/?$ reports.php [END,NC]
 
