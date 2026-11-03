@@ -85,7 +85,7 @@ $rustPrep=waxum_provision_status();
           <div class="notice notice-success" role="status"><strong>One-time generated credential</strong> — copy it now. This value will not be shown again.</div>
           <div class="field">
             <label for="issued_token">SUPERADMIN_TOKEN — one-time display</label>
-            <input id="issued_token" type="text" value="<?= escape($generatedToken) ?>" readonly spellcheck="false" autocomplete="off" style="font-family:monospace;overflow-wrap:anywhere">
+            <input id="issued_token" type="text" value="<?= escape($generatedToken) ?>" readonly spellcheck="false" autocomplete="off" >
           </div>
           <p class="panel-help">The same secret is already stored in private gateway settings and the private Waxum provisioning file. Never include this value in email, chat, logs or support tickets.</p>
         <?php elseif (!$gatewayConfigured): ?>
@@ -112,6 +112,8 @@ $rustPrep=waxum_provision_status();
           </form>
         <?php endif; ?>
         <p class="panel-help">Preparation extracts a fixed, checksum-pinned ELF binary. It does not execute it. Cloudways must explicitly support running and supervising the binary; PHP cannot safely make a permanent service by spawning a detached process from this webpage.</p>
+        <div class="notice notice-warning" role="note"><strong>Do not start while port 3451 is publicly accessible.</strong> The pinned upstream Waxum HTTP server binds all interfaces, not localhost-only. Cloudways must block public ingress and provide an approved supervisor before process startup.</div>
+        <p class="panel-help"><strong>Separate storage prerequisite:</strong> PHP JSON mode does not replace Waxum's internal database and linked-device state storage. Cloudways must approve the actual Rust storage configuration before first startup.</p>
       </section>
       <section class="glass-panel workspace-section">
         <div class="panel-heading"><div><div class="eyebrow">STEP 3 / CONNECTION</div><h2>Local Rust connection</h2></div></div>
