@@ -6,22 +6,10 @@ $db=store();
 $subscribers=(array)(config()['webhook_subscribers']??[]);
 $max=max(1,min(50,(int)($argv[1]??15)));
 $count=0;
-$db->prepare("UPDATE event_deliveries SET state='dead',updated_at=? WHERE state='processing' AND updated_at<?")
-    ->execute([time(),time()-600]);
+storage_event_stale();
 while ($count<$max) {
-    $db->exec('BEGIN IMMEDIATE');
-    try {
-        $q=$db->prepare("SELECT d.*,e.payload FROM event_deliveries d JOIN events e ON e.id=d.event_id WHERE d.state='queued' AND d.next_at<=? ORDER BY d.next_at LIMIT 1");
-        $q->execute([time()]);
-        $job=$q->fetch();
-        if (!$job) { $db->commit(); break; }
-        $claim=$db->prepare("UPDATE event_deliveries SET state='processing',attempts=attempts+1,updated_at=? WHERE event_id=? AND subscriber_id=?");
-        $claim->execute([time(),$job['event_id'],$job['subscriber_id']]);
-        $db->commit();
-    } catch (Throwable $e) {
-        if ($db->inTransaction()) $db->rollBack();
-        throw $e;
-    }
+    $job=storage_event_claim();
+    if (!$job) break;
     ++$count;
     $subscriber=$subscribers[$job['subscriber_id']]??null;
     $url=is_array($subscriber)?(string)($subscriber['url']??''):'';
@@ -54,7 +42,6 @@ while ($count<$max) {
     $attempts=(int)$job['attempts']+1;
     $next=$ok?'delivered':($attempts>=5?'dead':'queued');
     $delay=$ok?0:min(900,15*(2**$attempts));
-    $u=$db->prepare('UPDATE event_deliveries SET state=?,next_at=?,last_http=?,updated_at=? WHERE event_id=? AND subscriber_id=?');
-    $u->execute([$next,time()+$delay,$status,time(),$job['event_id'],$job['subscriber_id']]);
+    storage_event_finish($job['event_id'],$job['subscriber_id'],$next,time()+$delay,$status);
 }
 echo "Processed ".$count." outbound events\n";
