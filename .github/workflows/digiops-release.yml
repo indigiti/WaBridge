@@ -11,6 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Build self-hosted premium typography and unified CSS
+        run: |
+          bash tools/fetch-fonts.sh
+          php tools/build-assets.php
+          test -s public/assets/wabridge-ui-v5.css
+          test -s public/assets/fonts/inter-latin-400.woff2
       - name: Validate PHP source
         run: find . -name '*.php' -not -path './release/*' -print0 | xargs -0 -n1 php -l
       - name: Validate SQLite legacy and message queue
