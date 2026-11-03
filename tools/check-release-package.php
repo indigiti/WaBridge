@@ -12,6 +12,8 @@ $required=[
     'private/src/gateway-settings.php','public/gateway-settings.php',
     'private/src/json-store.php','private/src/storage-services.php',
     'private/src/storage-migration.php','public/storage-settings.php',
+    'private/src/waxum-provisioning.php',
+    'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz',
     'public/qr.php','public/api/send.php','public/api/v1/messages.php',
     'private/src/bootstrap.php','private/src/store.php',
     'private/cli/worker.php','private/cli/webhooks.php',
@@ -39,6 +41,15 @@ if (!str_contains($index,'/wabridge/assets/wabridge-premium-v2.css')) {
 $css=file_get_contents($path.'/public/assets/wabridge-premium-v2.css');
 if (strlen($css)<5000 || !str_contains($css,'.auth-card') || !str_contains($css,'.workspace-two')) {
     fwrite(STDERR,"Premium stylesheet incomplete\n");
+    exit(1);
+}
+$waxumPath=$path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
+if (!hash_equals('2a8d5d9f89f600a413854b8823db3f9892e26c81ff876398716b56d21e863a61',(string)hash_file('sha256',$waxumPath))) {
+    fwrite(STDERR,"Pinned private Rust binary checksum mismatch\n");
+    exit(1);
+}
+if (file_exists($path.'/public/waxum')) {
+    fwrite(STDERR,"Rust binary must not be distributed through public HTML\n");
     exit(1);
 }
 echo "WaBridge DigiOps release validated\n";
