@@ -9,6 +9,17 @@
   const STORE = 'wabridge.sidebar.compact.v1';
   const desktop = () => window.matchMedia('(min-width: 1101px)').matches;
   const expanded = () => !body.classList.contains('sidebar-compact');
+  const menuGroups = Array.from(document.querySelectorAll('.console-nav-group'));
+  let priorGroups = [];
+  const handleCompactGroups = () => {
+    if (body.classList.contains('sidebar-compact') && desktop()) {
+      if (!priorGroups.length) priorGroups = menuGroups.map(item => item.open);
+      menuGroups.forEach(item => { item.open = true; });
+    } else if (priorGroups.length) {
+      menuGroups.forEach((item, idx) => { item.open = priorGroups[idx]; });
+      priorGroups = [];
+    }
+  };
   const sync = () => {
     if (toggle) toggle.setAttribute('aria-expanded', String(expanded()));
     if (mobile) mobile.setAttribute('aria-expanded', String(body.classList.contains('sidebar-mobile-open')));
@@ -17,6 +28,7 @@
   if (toggle) toggle.addEventListener('click', () => {
     body.classList.toggle('sidebar-compact');
     try { localStorage.setItem(STORE, body.classList.contains('sidebar-compact') ? '1' : '0'); } catch (e) {}
+    handleCompactGroups();
     sync();
   });
   const closeMobile = () => {
@@ -36,6 +48,11 @@
     if (e.key === 'Escape') closeMobile();
   });
   document.querySelectorAll('.console-sidebar a').forEach(link => link.addEventListener('click', () => {
+    const href = link.getAttribute('href') || '';
+    if (href.startsWith('#')) {
+      const target = document.getElementById(href.slice(1));
+      if (target && target.tagName === 'DETAILS') target.open = true;
+    }
     if (!desktop()) closeMobile();
   }));
   const path = window.location.pathname.split('/').pop() || 'index.php';
@@ -57,5 +74,13 @@
       else a.removeAttribute('aria-current');
     });
   });
+  const activeSection = document.getElementById(window.location.hash.slice(1));
+  if (activeSection && activeSection.tagName === 'DETAILS') activeSection.open = true;
+  window.addEventListener('resize', () => {
+    if (desktop()) closeMobile();
+    handleCompactGroups();
+    sync();
+  });
+  handleCompactGroups();
   sync();
 })();
