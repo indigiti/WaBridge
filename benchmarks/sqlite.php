@@ -5,7 +5,7 @@ if (PHP_SAPI!=='cli') exit(2);
 $root=dirname(__DIR__);
 $configPath=$root.'/config.php';
 if (file_exists($configPath)) { fwrite(STDERR,"Do not benchmark against a configured deployment.\n"); exit(2); }
-file_put_contents($configPath,"<?php return ['gateway_url'=>'http://127.0.0.1:3451','gateway_token'=>'test','admin_password_hash'=>'test','allowed_sessions'=>['bench-device'],'max_message_chars'=>2000,'storage_driver'=>'sqlite'];");
+file_put_contents($configPath,"<?php return ['gateway_url'=>'http://127.0.0.1:3451','gateway_token'=>'test','admin_user'=>'testadmin','admin_password_hash'=>'test','allowed_sessions'=>['bench-device'],'max_message_chars'=>2000,'storage_driver'=>'sqlite'];");
 $files=[$root.'/runtime/wabridge.sqlite',$root.'/runtime/wabridge.sqlite-wal',$root.'/runtime/wabridge.sqlite-shm'];
 register_shutdown_function(static function()use($configPath,$files) {
     @unlink($configPath);
