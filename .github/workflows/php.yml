@@ -22,6 +22,8 @@ jobs:
         run: php benchmarks/sqlite.php 100
       - name: JSON backend integration tests (no SQLite)
         run: php tests/json-store.php
+      - name: Web-only storage migration safeguards
+        run: php tests/storage-migration.php
       - name: Check no secrets were committed
         run: |
           test ! -e config.php
