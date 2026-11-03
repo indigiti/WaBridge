@@ -35,6 +35,8 @@ try {
                 $_SESSION['last_seen']=time();
                 $notice='Signed in successfully.';
                 audit_event('admin_login','admin');
+                header('Location: /wabridge/',true,303);
+                exit;
             } else {
                 usleep(200000);
                 $error='Invalid credentials.';
@@ -44,6 +46,8 @@ try {
             session_regenerate_id(true);
             $notice = 'Signed out.';
             audit_event('admin_logout','admin');
+            header('Location: /wabridge/',true,303);
+            exit;
         } elseif (admin_authenticated()) {
             if ($action === 'send') {
                 [$sid, $to, $text] = validate_message([
