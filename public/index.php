@@ -269,7 +269,7 @@ if ($authed) {
         <div class="panel-heading"><div><div class="eyebrow">CONNECTED ACCOUNTS</div><h2 id="sessions-title">WhatsApp sessions</h2></div><span class="subtle-tag">QR secured</span></div>
         <div class="table-scroll"><table><thead><tr><th>Session</th><th>Status</th><th>Pairing</th></tr></thead><tbody>
           <?php $visibleSessions=0; foreach ($sessions as $s): if (!is_array($s)) continue; $sid=(string)($s['id']??$s['session_id']??''); if (!permitted_session($sid)) continue; $visibleSessions++; ?>
-            <tr><td><strong><?= escape($sid) ?></strong></td><td><span class="subtle-tag"><?= escape((string)($s['status']??'Unknown')) ?></span></td><td><a class="table-link" href="qr.php?sid=<?= rawurlencode($sid) ?>">View QR ↗</a></td></tr>
+            <tr><td><strong><?= escape($sid) ?></strong></td><td><span class="subtle-tag"><?= escape((string)($s['status']??'Unknown')) ?></span></td><td><a class="table-link" href="/wabridge/qr?sid=<?= rawurlencode($sid) ?>">View QR ↗</a></td></tr>
           <?php endforeach; ?>
           <?php if ($visibleSessions===0): ?><tr><td colspan="3" class="empty-cell">No sessions to display. Connect a device once the Rust gateway is available.</td></tr><?php endif; ?>
         </tbody></table></div>
