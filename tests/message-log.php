@@ -42,5 +42,7 @@ ensure($r['state']==='needs_review' && $r['id']===$failed['id'],'gateway error n
 $recent=storage_admin_messages(20);
 ensure(count($recent)===2,'history length');
 ensure(!isset($recent[0]['body']),'no plaintext in history');
-ensure(message_log_effective_status($recent[0])==='needs_review','uncertain outcome');
+$failureRow=null;
+foreach ($recent as $entry) if ($entry['id']===$failed['id']) $failureRow=$entry;
+ensure($failureRow!==null && message_log_effective_status($failureRow)==='needs_review','uncertain outcome');
 echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";
