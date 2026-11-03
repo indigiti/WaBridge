@@ -10,6 +10,7 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Tra
 $notice = '';
 $error = '';
 $issuedToken='';
+$setupError='';
 try {
     $cfg = config();
     start_admin_session();
@@ -77,7 +78,13 @@ try {
         }
     }
 } catch (Throwable $e) {
-    $error = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Operation failed; check server configuration and logs.';
+    if (in_array($e->getMessage(), ['PRIVATE_CONFIG_MISSING','ADMIN_CREDENTIALS_NOT_CONFIGURED','ADMIN_USERNAME_NOT_CONFIGURED','INVALID_PRIVATE_CONFIG'], true)) {
+        $setupError=$e->getMessage();
+        http_response_code(503);
+    } else {
+        $error = $e instanceof InvalidArgumentException ? $e->getMessage() : 'Operation failed; check server configuration and logs.';
+        error_log('WaBridge admin operation '.get_class($e).': '.substr($e->getMessage(),0,160));
+    }
 }
 $authed = admin_authenticated();
 $apiClients=[];
@@ -110,7 +117,9 @@ if ($authed) {
 </header>
 <?php if ($notice): ?><div class="alert" role="status"><?= escape($notice) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert" role="alert"><?= escape($error) ?></div><?php endif; ?>
-<?php if (!$authed): ?>
+<?php if ($setupError!==''): ?>
+<section class="panel" style="max-width:680px;margin:8vh auto"><h1>Private setup required</h1><p class="muted">The PHP application was deployed successfully. Administrator credentials must be configured in the private application folder before login is enabled.</p><div class="alert"><strong><?= escape($setupError) ?></strong></div><p>Create or update <code>private_html/wabridge/config.php</code> using <code>config.example.php</code> as a starting point. Set the administrator username and a secure password hash. Keep configuration and secrets outside <code>public_html</code>.</p><p class="muted">The Rust gateway can be connected separately after administrator login is configured. Never paste passwords or API tokens into the browser address bar, GitHub, or chat.</p></section>
+<?php elseif (!$authed): ?>
 <section class="panel" style="max-width:440px;margin:9vh auto"><h1>Welcome back</h1><p class="muted">Sign in to manage your WhatsApp gateway.</p>
 <form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="login">
 <label for="u">Username</label><input id="u" name="username" autocomplete="username" required>
