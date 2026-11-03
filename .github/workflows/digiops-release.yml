@@ -59,6 +59,7 @@ jobs:
           file waxum-compat-check/waxum | grep -q 'ELF 64-bit.*x86-64'
           readelf -W --version-info waxum-compat-check/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > waxum-compat-check/versions
           test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 waxum-compat-check/versions)" | sort -V | tail -1)" = 'GLIBC_2.31'
+          mkdir -p waxum/releases
           cp waxum-compat-build/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz waxum/releases/
       - name: Test browser provisioning and private staging
         run: php tests/waxum-provisioning.php
