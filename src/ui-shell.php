@@ -45,7 +45,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <span class="console-user">Administrator</span>
-      <form method="post" action="/wabridge/" class="header-logout">
+      <form method="post" action="/wabridge/sign-out" class="header-logout">
         <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
         <input type="hidden" name="action" value="logout">
         <button class="button button-ghost button-small" type="submit">Sign out</button>
