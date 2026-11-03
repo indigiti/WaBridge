@@ -39,7 +39,7 @@ $requireFragments($glass,[
     'backdrop-filter:blur','--wb-glass','console-breadcrumbs',
     '.glass-panel','.stat-card','prefers-reduced-transparency'
 ],'Glass design system');
-$requireFragments($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open'],'Navigation behavior');
+$requireFragments($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href'],'Navigation behavior');
 $requireFragments($messages,[
     'admin_authenticated()','assert_csrf()','process_next_message',
     'storage_admin_messages','message_log_effective_status','escape(',
