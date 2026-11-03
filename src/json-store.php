@@ -25,6 +25,7 @@ final class JsonStore {
             'events'=>[],'deliveries'=>[],'receipts'=>[],'audit'=>[]];
     }
     private function withLock(bool $write, callable $callback): mixed {
+        if (is_link($this->lock)) throw new RuntimeException('JSON lock symlink prohibited');
         $fh = fopen($this->lock,'c+b');
         if ($fh === false) throw new RuntimeException('Cannot open JSON storage lock');
         @chmod($this->lock,0600);
