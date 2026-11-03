@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 return [
+    // JSON is for low-volume single-server testing. Keep MariaDB for production.
+    // Existing private configs without this option retain their SQLite data until
+    // explicitly migrated using the web-only Storage Settings screen.
+    'storage_driver' => 'json',
     'gateway_url' => getenv('WABRIDGE_GATEWAY_URL') ?: 'http://127.0.0.1:3451',
     'gateway_token' => getenv('WABRIDGE_GATEWAY_TOKEN') ?: '',
     'admin_user' => getenv('WABRIDGE_ADMIN_USER') ?: 'admin',
