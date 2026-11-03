@@ -200,7 +200,7 @@ if ($authed) {
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="gateway-settings.php">Gateway settings</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
+        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="gateway-settings.php">Gateway settings</a><a href="storage-settings.php">Storage settings</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
       </nav>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
         <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
