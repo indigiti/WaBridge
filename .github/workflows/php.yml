@@ -26,6 +26,8 @@ jobs:
         run: php tests/json-store.php
       - name: Web-only storage migration safeguards
         run: php tests/storage-migration.php
+      - name: Check Rust Supervisor command with mock binary
+        run: bash tests/waxum-supervisor.sh
       - name: Check no secrets were committed
         run: |
           test ! -e config.php
