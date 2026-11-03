@@ -1,0 +1,24 @@
+[Unit]
+Description=Waxum Rust WhatsApp engine for WaBridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wabridge
+Group=wabridge
+WorkingDirectory=/opt/wabridge
+EnvironmentFile=/etc/wabridge/waxum.env
+ExecStart=/opt/wabridge/bin/waxum
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/wabridge
+UMask=0077
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
