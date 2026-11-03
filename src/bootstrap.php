@@ -99,3 +99,5 @@ function validate_message(array $input): array {
         throw new InvalidArgumentException('Message must be nonempty and within length limit');
     return [$sid, $to, $message];
 }
+
+require_once __DIR__ . '/gateway-provider.php';
