@@ -28,7 +28,7 @@ $requireFragments($index,[
     "in_array(\$view,['overview','messaging']",
     "in_array(\$view,['overview','devices']",
     'href="/wabridge/messages','href="/wabridge/diagnostics',
-    'wabridge-glass-v4.css',
+    'wabridge-ui-v5.css',
     'require_once dirname((new ReflectionFunction'
 ],'Dashboard');
 $requireFragments($css,[
