@@ -36,6 +36,8 @@ jobs:
 
       - name: Test browser provisioning and private staging
         run: php tests/waxum-provisioning.php
+      - name: Verify private Rust supervisor startup command
+        run: bash tests/waxum-supervisor.sh
       - name: Assemble DigiOps public/private payload
         run: |
           php tools/package-release.php
