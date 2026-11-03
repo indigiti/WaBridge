@@ -26,6 +26,7 @@ try {
     $q=store()->prepare('INSERT OR IGNORE INTO events(id,session_id,event_type,received_at,payload) VALUES(?,?,?,?,?)');
     $q->execute([$eventId,substr($sid,0,64),$type,time(),$raw]);
     if ($q->rowCount()===1) {
+        update_receipt_from_event(store(),$eventId,$event);
         foreach ((array)(config()['webhook_subscribers']??[]) as $subscriberId=>$subscriber) {
             if (!is_array($subscriber) || !preg_match('/\A[a-zA-Z0-9_-]{3,64}\z/D',(string)$subscriberId)) continue;
             if (!in_array($sid,(array)($subscriber['sessions']??[]),true)) continue;
