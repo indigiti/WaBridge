@@ -46,6 +46,15 @@ if (is_file($waxumArchive)) {
         throw new RuntimeException('Cannot package verified private Waxum archive');
 }
 
+$compatibleArchive=$root.'/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if (is_file($compatibleArchive)) {
+    $compatTarget=$release.'/private/waxum/releases';
+    if (!is_dir($compatTarget) && !mkdir($compatTarget,0755,true) && !is_dir($compatTarget))
+        throw new RuntimeException('Cannot create private Cloudways compatibility archive directory');
+    if (!copy($compatibleArchive,$compatTarget.'/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'))
+        throw new RuntimeException('Cannot package the Cloudways-compatible Waxum archive');
+}
+
 // Runtime config.php, SQLite, session secrets, logs and customer data are deliberately excluded.
 $metadata=[
     'schema'=>'WABRIDGE-BUILD/1',
