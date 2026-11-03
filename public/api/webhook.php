@@ -25,5 +25,15 @@ try {
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D',$eventId)) $eventId=hash('sha256',$raw);
     $q=store()->prepare('INSERT OR IGNORE INTO events(id,session_id,event_type,received_at,payload) VALUES(?,?,?,?,?)');
     $q->execute([$eventId,substr($sid,0,64),$type,time(),$raw]);
+    if ($q->rowCount()===1) {
+        foreach ((array)(config()['webhook_subscribers']??[]) as $subscriberId=>$subscriber) {
+            if (!is_array($subscriber) || !preg_match('/\A[a-zA-Z0-9_-]{3,64}\z/D',(string)$subscriberId)) continue;
+            if (!in_array($sid,(array)($subscriber['sessions']??[]),true)) continue;
+            $events=(array)($subscriber['events']??['message','receipt','connected','disconnected']);
+            if (!in_array($type,$events,true)) continue;
+            $statement=store()->prepare('INSERT OR IGNORE INTO event_deliveries(event_id,subscriber_id,next_at,updated_at) VALUES(?,?,?,?)');
+            $statement->execute([$eventId,(string)$subscriberId,time(),time()]);
+        }
+    }
     http_response_code(202);echo '{"accepted":true}';
 } catch (Throwable $e) { http_response_code(422);echo '{"error":"invalid_payload"}'; }
