@@ -149,3 +149,5 @@ td strong{color:#284767}
  .client-form{grid-template-columns:1fr}
  .glass-panel{padding:20px}
 }
+
+.button:disabled{opacity:.52;cursor:not-allowed;box-shadow:none;transform:none}
