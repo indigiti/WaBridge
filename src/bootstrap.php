@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/gateway-settings.php';
 function config(): array {
     static $config = null;
     if ($config === null) {
@@ -14,6 +15,13 @@ function config(): array {
         }
         if (empty($config['admin_user']) || !is_string($config['admin_user'])) {
             throw new RuntimeException('ADMIN_USERNAME_NOT_CONFIGURED');
+        }
+        // Only the exact loopback endpoint may be configured through the browser.
+        // Preserve existing admin credentials and all other application settings.
+        $local = gateway_settings_read();
+        if ($local !== null) {
+            $config['gateway_url'] = $local['gateway_url'];
+            $config['gateway_token'] = $local['gateway_token'];
         }
     }
     return $config;
