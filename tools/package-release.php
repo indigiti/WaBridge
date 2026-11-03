@@ -37,7 +37,7 @@ removeDirectory($release);
 copyDirectory($root.'/public',$release.'/public');
 foreach (['src','cli'] as $folder) copyDirectory($root.'/'.$folder,$release.'/private/'.$folder);
 copy($root.'/config.example.php',$release.'/private/config.example.php');
-$waxumArchive=$root.'/waxum-build/waxum-v0.16.1-linux-amd64.tar.gz';
+$waxumArchive=$root.'/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
 if (is_file($waxumArchive)) {
     $waxumTarget=$release.'/private/waxum/releases';
     if (!is_dir($waxumTarget) && !mkdir($waxumTarget,0755,true) && !is_dir($waxumTarget))
