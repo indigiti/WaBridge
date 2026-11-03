@@ -14,6 +14,7 @@ $required=[
     'private/src/storage-migration.php','public/storage-settings.php',
     'private/src/waxum-provisioning.php',
     'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz',
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz',
     'public/qr.php','public/api/send.php','public/api/v1/messages.php',
     'private/src/bootstrap.php','private/src/store.php',
     'private/cli/worker.php','private/cli/webhooks.php','private/cli/waxum-supervisor.sh',
@@ -46,6 +47,11 @@ if (strlen($css)<5000 || !str_contains($css,'.auth-card') || !str_contains($css,
 $waxumPath=$path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
 if (!hash_equals('2a8d5d9f89f600a413854b8823db3f9892e26c81ff876398716b56d21e863a61',(string)hash_file('sha256',$waxumPath))) {
     fwrite(STDERR,"Pinned private Rust binary checksum mismatch\n");
+    exit(1);
+}
+$compatPath=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if (!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',(string)hash_file('sha256',$compatPath))) {
+    fwrite(STDERR,"Cloudways-compatible Rust binary checksum mismatch\n");
     exit(1);
 }
 if (file_exists($path.'/public/waxum')) {
