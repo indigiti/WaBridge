@@ -13,6 +13,7 @@ file_put_contents($cfg,'<?php return '.var_export($fixture,true).';');
 register_shutdown_function(static function ()use($cfg,$settings,$dir) {
     @unlink($cfg);@unlink($settings);
     @unlink($dir.'/waxum');@unlink($dir.'/waxum-auth.env');@unlink($dir.'/waxum-db.env');
+    @unlink($dir.'/waxum-compat-installed.json');@unlink($dir.'/waxum.previous-incompatible.bak');
     @rmdir($dir);
 });
 require $root.'/src/bootstrap.php';
@@ -52,6 +53,28 @@ if ($before['binary_archive_ready']) {
     if ((fileperms($dir.'/waxum')&0077)!==0)
         throw new RuntimeException('Staged binary permissions too broad');
 }
+// Cloudways compatibility archive must be source- and checksum-pinned and
+// replacing a stopped Rust binary must preserve the previous executable.
+if (!waxum_compat_archive_verified())
+    throw new RuntimeException('Missing or unverified Cloudways-compatible Waxum archive');
+if (waxum_compat_installed())
+    throw new RuntimeException('Compatibility marker incorrectly claimed a legacy binary');
+$previousHash=(string)hash_file('sha256',$dir.'/waxum');
+if (waxum_install_compat_binary()!=='installed')
+    throw new RuntimeException('Could not install Cloudways compatible Rust binary');
+if (!waxum_compat_installed())
+    throw new RuntimeException('Cloudways-compatible marker does not match staged executable');
+if (waxum_install_compat_binary()!=='already_installed')
+    throw new RuntimeException('Repeated compatible installation did not preserve existing state');
+if (!is_file($dir.'/waxum.previous-incompatible.bak') ||
+    hash_file('sha256',$dir.'/waxum.previous-incompatible.bak')!==$previousHash)
+    throw new RuntimeException('Incompatible Waxum executable backup missing or incorrect');
+if ((fileperms($dir.'/waxum.previous-incompatible.bak')&0077)!==0)
+    throw new RuntimeException('Old binary backup not private');
+if ((fileperms($dir.'/waxum-compat-installed.json')&0077)!==0)
+    throw new RuntimeException('Compatibility receipt not private');
+if (gateway_settings_read()['gateway_token']!==$token)
+    throw new RuntimeException('Rust replacement changed the existing SUPERADMIN_TOKEN');
 // Rust-only SQLite test storage must require one explicit browser opt-in.
 if (waxum_test_database_mode()!=='not_configured')
     throw new RuntimeException('Rust database mode was silently enabled');
