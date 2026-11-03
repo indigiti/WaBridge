@@ -66,9 +66,11 @@ try {
                 foreach ($sessions as $session) if (!valid_session_id($session)) throw new InvalidArgumentException('Invalid session scope');
                 $sessions=array_values(array_unique($sessions));
                 $rate=max(1,min(300,(int)($_POST['client_rate']??20)));
+                $ttl=max(1,min(365,(int)($_POST['client_ttl_days']??90)));
+                $expires=time()+$ttl*86400;
                 $issuedToken=rtrim(strtr(base64_encode(random_bytes(32)),'+/','-_'),'=');
-                $s=store()->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at) VALUES(?,?,?,?,?)');
-                $s->execute([$id,hash('sha256',$issuedToken),json_encode($sessions,JSON_THROW_ON_ERROR),$rate,time()]);
+                $s=store()->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at,expires_at) VALUES(?,?,?,?,?,?)');
+                $s->execute([$id,hash('sha256',$issuedToken),json_encode($sessions,JSON_THROW_ON_ERROR),$rate,time(),$expires]);
                 $notice='Application created. Copy its API token now; it will not be shown again.';
                 audit_event('api_client_created','admin',$id,['sessions'=>$sessions,'per_minute'=>$rate]);
             } elseif ($action==='revoke_client') {
@@ -98,7 +100,7 @@ $gatewayState = ['ready'=>false,'state'=>'not_configured','message'=>'Rust conne
 $stats = ['queued'=>0,'accepted'=>0,'needs_review'=>0];
 if ($authed) {
     try {
-        $apiClients=store()->query('SELECT id,sessions_json,per_minute,active FROM api_clients ORDER BY id LIMIT 100')->fetchAll();
+        $apiClients=store()->query('SELECT id,sessions_json,per_minute,active,expires_at,last_used_at FROM api_clients ORDER BY id LIMIT 100')->fetchAll();
         foreach (store()->query('SELECT state, COUNT(*) AS n FROM jobs GROUP BY state') as $row) { if (isset($stats[$row['state']])) $stats[$row['state']] = (int)$row['n']; }
         $gatewayState = gateway_diagnostics();
         $health = $gatewayState['ready'] ? 'Ready' : ucfirst(str_replace('_',' ', $gatewayState['state']));
@@ -200,7 +202,7 @@ if ($authed) {
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <nav class="section-nav" aria-label="Dashboard sections">
-        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
+        <a href="#overview">Overview</a><a href="diagnostics.php">Diagnostics</a><a href="reports.php">Reports</a><a href="#devices">Devices</a><a href="#messaging">Messaging</a><a href="#integrations">API applications</a>
       </nav>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
         <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Live control-plane information</span></div>
@@ -252,15 +254,16 @@ if ($authed) {
           <div class="field"><label for="appname">Application ID</label><input id="appname" name="client_id" maxlength="64" placeholder="e.g. schoolflow" required></div>
           <div class="field"><label for="appsessions">Allowed session IDs</label><input id="appsessions" name="client_sessions" maxlength="255" placeholder="school-01,school-02" required></div>
           <div class="field"><label for="apprate">Rate / minute</label><input id="apprate" name="client_rate" type="number" min="1" max="300" value="20" required></div>
+          <div class="field"><label for="appdays">Expires in days</label><input id="appdays" name="client_ttl_days" type="number" min="1" max="365" value="90" required></div>
           <button type="submit" class="button button-primary">Create application <span aria-hidden="true">→</span></button>
         </form>
-        <div class="table-scroll"><table><thead><tr><th>Application</th><th>Allowed sessions</th><th>Limit</th><th>Status</th><th>Action</th></tr></thead><tbody>
+        <div class="table-scroll"><table><thead><tr><th>Application</th><th>Allowed sessions</th><th>Limit</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead><tbody>
           <?php foreach ($apiClients as $client): ?><tr>
-            <td><strong><?= escape((string)$client['id']) ?></strong></td><td><?= escape((string)$client['sessions_json']) ?></td><td><?= (int)$client['per_minute'] ?>/min</td>
+            <td><strong><?= escape((string)$client['id']) ?></strong></td><td><?= escape((string)$client['sessions_json']) ?></td><td><?= (int)$client['per_minute'] ?>/min</td><td><?= !empty($client['expires_at']) ? escape(gmdate('Y-m-d',(int)$client['expires_at'])) : 'Legacy' ?></td>
             <td><span class="subtle-tag <?= (int)$client['active']===1 ? 'tag-success' : '' ?>"><?= (int)$client['active']===1 ? 'Active' : 'Revoked' ?></span></td>
             <td><?php if ((int)$client['active']===1): ?><form method="post" class="inline-form"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="revoke_client"><input type="hidden" name="client_id" value="<?= escape((string)$client['id']) ?>"><button class="button button-small button-ghost" type="submit">Revoke</button></form><?php endif; ?></td>
           </tr><?php endforeach; ?>
-          <?php if (!$apiClients): ?><tr><td colspan="5" class="empty-cell">No API applications yet. Add your first integration above.</td></tr><?php endif; ?>
+          <?php if (!$apiClients): ?><tr><td colspan="6" class="empty-cell">No API applications yet. Add your first integration above.</td></tr><?php endif; ?>
         </tbody></table></div>
       </section>
     <?php endif; ?>
