@@ -10,6 +10,8 @@ $required=[
     'public/api/v1/capabilities.php','public/api/v1/batches.php',
     'private/src/gateway-provider.php',
     'private/src/gateway-settings.php','public/gateway-settings.php',
+    'private/src/json-store.php','private/src/storage-services.php',
+    'private/src/storage-migration.php','public/storage-settings.php',
     'public/qr.php','public/api/send.php','public/api/v1/messages.php',
     'private/src/bootstrap.php','private/src/store.php',
     'private/cli/worker.php','private/cli/webhooks.php',
