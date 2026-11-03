@@ -60,7 +60,7 @@ if (!waxum_compat_installed())
 if ((fileperms($dir.'/waxum')&0077)!==0)
     throw new RuntimeException('Cloudways binary permissions too broad');
 $fp=fopen($dir.'/waxum','rb');$magic=fread($fp,4);fclose($fp);
-if ($magic!=="\\x7FELF") throw new RuntimeException('Cloudways build is not ELF');
+if ($magic!==(chr(127).'ELF')) throw new RuntimeException('Cloudways build is not ELF');
 if (waxum_install_compat_binary()!=='already_installed')
     throw new RuntimeException('Repeated compatible installation did not preserve existing state');
 if (is_file($dir.'/waxum.previous-incompatible.bak'))
