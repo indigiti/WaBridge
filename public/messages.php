@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/_loader.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-processor.php';
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex');
-header("Content-Security-Policy: default-src 'self'; script-src 'none'; form-action 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; form-action 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'");
 if (!admin_authenticated()) { http_response_code(403); exit('Sign in to WaBridge first.'); }
 $notice=''; $error='';
 if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
@@ -53,12 +54,15 @@ try {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message Activity - WaBridge</title>
 <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=4">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
+<link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
+<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
 <link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=1">
 </head><body class="dashboard-page message-log-page">
-<div class="site-shell">
-<header class="site-header"><a href="./" class="brand-lockup"><span class="brand-mark"><span class="brand-mark-inner">W</span></span><span class="brand-copy"><strong>WaBridge</strong><small>Message operations</small></span></a><div class="header-right"><a class="button button-ghost button-small" href="./">Back to dashboard</a></div></header>
+<?php ui_shell_start('messages'); ?>
 <main class="workspace message-workspace">
-<div class="workspace-top"><div><div class="eyebrow">OPERATIONS / MESSAGE ACTIVITY</div><h1>Message activity</h1><p class="lead">Queue processing, gateway acceptance, and evidence-based delivery reporting.</p></div><a class="button button-ghost" href="messages.php">Refresh log</a></div>
+<?php ui_breadcrumb('WhatsApp','Message activity'); ?>
+<div class="workspace-top"><div><div class="eyebrow">OPERATIONS / MESSAGE ACTIVITY</div><h1>Message activity</h1><p class="lead">Queue processing, gateway acceptance, and evidence-based delivery reporting.</p></div><a class="button button-ghost" href="/wabridge/messages">Refresh log</a></div>
 <?php if ($notice!==''): ?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif; ?>
 <?php if ($error!==''): ?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif; ?>
 <section class="stats-grid log-stats">
@@ -78,13 +82,13 @@ try {
 <label>Delivery status<select name="status"><?php foreach ([''=>'All','queued'=>'Queued','processing'=>'Processing','accepted'=>'Accepted','sent'=>'Sent','delivered'=>'Delivered','read'=>'Read','failed'=>'Failed','needs_review'=>'Needs review'] as $value=>$label): ?><option value="<?= escape($value) ?>" <?= $status===$value?'selected':'' ?>><?= escape($label) ?></option><?php endforeach; ?></select></label>
 <label>Session<input name="session" value="<?= escape($session) ?>" maxlength="64" placeholder="Optional session"></label>
 <label>Job ID<input name="id" value="<?= escape($id) ?>" maxlength="32" placeholder="Exact job ID"></label>
-<button class="button button-primary" type="submit">Filter</button><a class="button button-ghost" href="messages.php">Reset</a>
+<button class="button button-primary" type="submit">Filter</button><a class="button button-ghost" href="/wabridge/messages">Reset</a>
 </form>
 <p class="panel-help">Recipients are masked; message bodies and secrets are never shown. Times are UTC. Records expire according to the configured test-storage retention.</p>
 <div class="table-scroll"><table><thead><tr><th>Created (UTC)</th><th>Job / session</th><th>Recipient</th><th>Status</th><th>Gateway</th><th>Updated (UTC)</th></tr></thead><tbody>
 <?php foreach ($rows as $row): ?>
 <tr><td><?= escape(message_log_time((int)$row['created_at'])) ?></td>
-<td><a class="table-link" href="messages.php?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
+<td><a class="table-link" href="/wabridge/messages?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
 <td><?= escape(message_log_mask_recipient($row['destination'])) ?></td>
 <td><span class="subtle-tag <?= in_array($row['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text($row['effective_state'])) ?></span></td>
 <td><?= $row['response_code']===null?'—':(int)$row['response_code'] ?><small>Attempts <?= (int)$row['attempts'] ?></small><?php if (!empty($row['receipt']['provider_id'])): ?><small>Provider ID <?= escape(substr($row['receipt']['provider_id'],0,24)) ?></small><?php endif; ?></td>
@@ -94,5 +98,4 @@ try {
 </tbody></table></div>
 </section>
 <p class="notice notice-warning">Delivery labels require signed, matching upstream receipt data. Waxum v0.16.1 WhatsApp Web receipt events may be unstructured; a gateway HTTP 200 must remain “Accepted / delivery unknown” until matching delivery evidence exists.</p>
-</main><footer class="site-footer">WaBridge · Private message operations</footer>
-</div></body></html>
+</main><?php ui_shell_end(); ?></body></html>
