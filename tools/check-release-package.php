@@ -10,7 +10,7 @@ $required=[
     'public/assets/wabridge-premium-v2.css','public/assets/wabridge-console-v3.css',
     'public/assets/wabridge-console-v3.js','public/assets/wabridge-glass-v4.css',
     'public/messages.php','public/diagnostics-view.php','public/reports-view.php','public/performance.php',
-    'public/qr.php','public/diagnostics.php','public/reports.php',
+    'public/qr.php','public/diagnostics.php','public/reports.php','public/verification.php',
     'public/gateway-settings.php','public/storage-settings.php',
     'public/assets/vendor/qrcode.min.js','public/assets/qr-init.js',
     'public/api/send.php','public/api/v1/messages.php',
@@ -67,7 +67,137 @@ if (!str_contains($layout,'function ui_shell_start') || !str_contains($layout,'f
     throw new RuntimeException('Shared admin shell missing');
 $routes=(string)file_get_contents($path.'/public/.htaccess');
 foreach (['^messages/?$','^gateway/?$','^storage/?$','^qr/?$',
-          '^diagnostics/?$','^reports/?$','^performance/?$',
+          '^diagnostics/?$','^reports/?$','^performance/?
+          '^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^reports/?,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^performance/?,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^verification/?
+          '^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^reports/?,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^performance/?,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+    if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
+}
+$fixedDigests=[
+    'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz'=>
+      'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+];
+foreach($fixedDigests as $file=>$digest) {
+    if (!hash_equals($digest,(string)hash_file('sha256',$path.'/'.$file)))
+        throw new RuntimeException('Pinned private Waxum archive checksum mismatch: '.$file);
+}
+if (file_exists($path.'/private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'))
+    throw new RuntimeException('Incompatible upstream Rust archive must not be shipped');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust binary must never be deployed to public HTML');
+echo "WaBridge DigiOps release validated\n";
+,
           '^api/diagnostics/?$','^api/reports/?$'] as $route) {
     if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
 }
