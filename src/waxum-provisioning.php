@@ -10,11 +10,8 @@ function waxum_provision_dir(): string {
     return dirname(__DIR__).'/runtime/waxum-provision';
 }
 function waxum_provision_status(): array {
-    $manifest=dirname(__DIR__).'/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
     $arch=php_uname('m');
-    $archiveExists=is_file($manifest);
-    $expected='2a8d5d9f89f600a413854b8823db3f9892e26c81ff876398716b56d21e863a61';
-    $verified=$archiveExists && is_readable($manifest) && hash_file('sha256',$manifest)===$expected;
+    $verified=waxum_compat_archive_verified();
     $env=waxum_provision_dir().'/waxum-auth.env';
     return [
         'platform_arch'=>$arch,
@@ -94,44 +91,7 @@ function waxum_enable_test_sqlite(): string {
  * firewall/supervisor settings. Failure leaves the old binary unchanged.
  */
 function waxum_stage_binary(): string {
-    $status=waxum_provision_status();
-    if (!$status['binary_archive_ready'])
-        throw new RuntimeException('Verified Linux AMD64 Waxum archive is unavailable for this server architecture');
-    if (!class_exists('PharData'))
-        throw new RuntimeException('Cloudways PHP PharData archive support is unavailable');
-    $dir=waxum_provision_dir();
-    $runtime=dirname(__DIR__).'/runtime';
-    if (is_link($runtime) || is_link($dir)) throw new RuntimeException('Private staging symlink prohibited');
-    if (!is_dir($runtime) && !mkdir($runtime,0700,true) && !is_dir($runtime))
-        throw new RuntimeException('Private runtime directory unavailable');
-    if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir))
-        throw new RuntimeException('Private Waxum staging directory unavailable');
-    @chmod($dir,0700);
-    $destination=$dir.'/waxum';
-    if (is_link($destination)) throw new RuntimeException('Binary symlink prohibited');
-    if (is_file($destination)) return 'already_staged';
-    $archive=dirname(__DIR__).'/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz';
-    $temp=$dir.'/extract-'.bin2hex(random_bytes(8));
-    if (!mkdir($temp,0700,true)) throw new RuntimeException('Unable to create private staging directory');
-    try {
-        $tar=new PharData($archive);
-        if (!isset($tar['waxum']) || !$tar['waxum']->isFile())
-            throw new RuntimeException('Verified Waxum archive has no executable file');
-        $tar->extractTo($temp,['waxum'],false);
-        $source=$temp.'/waxum';
-        if (is_link($source)||!is_file($source)||filesize($source)>104857600||filesize($source)<100000)
-            throw new RuntimeException('Invalid Waxum executable');
-        $fh=fopen($source,'rb');
-        if ($fh===false) throw new RuntimeException('Unreadable extracted executable');
-        try { $magic=fread($fh,4); } finally { fclose($fh); }
-        if ($magic!=="\x7FELF") throw new RuntimeException('Waxum executable is not an ELF binary');
-        if (!chmod($source,0700)) throw new RuntimeException('Unable to set executable permissions');
-        if (!rename($source,$destination)) throw new RuntimeException('Unable to stage Waxum executable');
-        return 'staged';
-    } finally {
-        if (is_file($temp.'/waxum')) @unlink($temp.'/waxum');
-        @rmdir($temp);
-    }
+    throw new RuntimeException('Legacy upstream binary disabled: install the verified Cloudways-compatible build instead');
 }
 /**
  * Verified compatibility build compiled from Waxum v0.16.1 upstream commit
