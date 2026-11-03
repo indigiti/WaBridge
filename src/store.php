@@ -26,7 +26,12 @@ function storage_mode(): string {
     }
     return is_file(dirname(__DIR__).'/runtime/wabridge.sqlite') ? 'sqlite' : 'json';
 }
+function storage_operational_guard(): void {
+    if (is_file(dirname(__DIR__).'/runtime/storage-migrating.flag'))
+        throw new RuntimeException('Storage migration in progress; try again later');
+}
 function store(): PDO|JsonStore {
+    storage_operational_guard();
     static $connection;
     if ($connection instanceof PDO || $connection instanceof JsonStore) return $connection;
     if (storage_mode()==='json') return $connection=new JsonStore();
@@ -120,6 +125,7 @@ function client_auth(): ?array {
     return null;
 }
 function limit_client(PDO|JsonStore $db, array $client): bool {
+    storage_operational_guard();
     if ($db instanceof JsonStore) return $db->quota((string)$client['id'],(int)$client['limit']);
     $bucket = intdiv(time(), 60);
     $db->beginTransaction();
@@ -133,6 +139,7 @@ function limit_client(PDO|JsonStore $db, array $client): bool {
     } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
 }
 function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $to, string $body, string $idem): array {
+    storage_operational_guard();
     if (!$client['sessions'] || !in_array($sid, $client['sessions'], true)) throw new InvalidArgumentException('Session not assigned to this API client');
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D', $idem)) throw new InvalidArgumentException('Idempotency-Key required, 8–128 safe characters');
     if ($db instanceof JsonStore) return $db->enqueue($client,$sid,$to,$body,$idem);
@@ -167,6 +174,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
     }
 }
 function claim_job(PDO|JsonStore $db): ?array {
+    storage_operational_guard();
     if ($db instanceof JsonStore) return $db->claim();
     $now = time();
     $db->exec('BEGIN IMMEDIATE');
@@ -182,6 +190,7 @@ function claim_job(PDO|JsonStore $db): ?array {
     } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
 }
 function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, string $response = ''): void {
+    storage_operational_guard();
     if ($db instanceof JsonStore) { $db->complete($id,$state,$code,$response);return; }
     $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
     $s->execute([$state,$code,substr($response,0,2000),time(),$id]);
