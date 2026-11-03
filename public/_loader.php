@@ -4,8 +4,9 @@ declare(strict_types=1);
 // Private code lives at private_html/wabridge/src/store.php.
 // Do not copy credentials or private source files into the public directory.
 
-$projectRoot=dirname(__DIR__);
-$slug=basename($projectRoot);
+$publicApplicationDir=__DIR__;
+$projectRoot=dirname(__DIR__); // Git checkout root, not the deployed application slug.
+$slug=basename($publicApplicationDir);
 $explicit=trim((string)(getenv('WABRIDGE_PRIVATE_ROOT')?:''));
 $documentRoot=(string)($_SERVER['DOCUMENT_ROOT']??'');
 $documentRootReal=$documentRoot!=='' ? realpath($documentRoot) : false;
@@ -21,9 +22,9 @@ if ($documentRootReal!==false) {
     $candidates[]=['document-root',dirname($documentRootReal).'/private_html/'.$slug];
 }
 // Standard Cloudways checkout: /applications/APP/public_html/wabridge
-$candidates[]=['sibling-public-private',dirname($projectRoot,2).'/private_html/'.$slug];
+$candidates[]=['sibling-public-private',dirname($publicApplicationDir,2).'/private_html/'.$slug];
 // Alternative PHP FPM mounts in which private_html is adjacent to public_html.
-$candidates[]=['adjacent',dirname(dirname($projectRoot)).'/private_html/'.$slug];
+$candidates[]=['adjacent',dirname($projectRoot).'/private_html/'.$slug];
 
 $found=null;
 $seen=[];
