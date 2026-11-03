@@ -17,4 +17,6 @@ return [
     //   'secret'=>'long-random-hmac-secret-at-least-32-characters',
     //   'sessions'=>['school-01'], 'events'=>['message','receipt']]
     'webhook_subscribers'=>[],
+    // P5: restricted small-batch queue. Keep disabled until consent and engine reliability are verified.
+    'enable_batches'=>false,
 ];
