@@ -150,6 +150,8 @@ if ($authed) {
     <link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
     <link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
     <script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
+  <?php else: ?>
+    <link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
   <?php endif; ?>
 </head>
 <body class="<?= $authed ? 'dashboard-page page-view-'.escape($view) : 'auth-page' ?>">
