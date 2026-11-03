@@ -5,6 +5,8 @@ $path=$root.'/release';
 $required=[
     'public/index.php','public/_loader.php','public/.htaccess',
     'public/assets/wabridge-premium-v2.css',
+    'public/assets/wabridge-console-v3.css','public/assets/wabridge-console-v3.js',
+    'public/messages.php','private/src/message-log.php','private/src/message-processor.php',
     'public/assets/vendor/qrcode.min.js','public/assets/qr-init.js',
     'public/qr.php','public/diagnostics.php','public/reports.php',
     'public/api/v1/capabilities.php','public/api/v1/batches.php',
