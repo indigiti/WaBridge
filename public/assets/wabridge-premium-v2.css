@@ -123,3 +123,29 @@ td strong{color:#284767}
 @media(max-width:1000px){.client-form{grid-template-columns:1fr 1fr}.client-form .button{justify-self:start}.workspace-two{gap:15px}}
 @media(max-width:740px){.site-header{padding:20px 18px}.header-caption{display:none}.site-footer{flex-direction:column;align-items:center;text-align:center;gap:5px;padding:15px 14px 25px}.auth-main{min-height:540px;padding:20px 15px 45px}.auth-card{border-radius:23px;padding:28px 25px}.workspace{padding-top:22px}.workspace-top{align-items:flex-start}.workspace-chip{display:none}.stats-grid,.workspace-two{grid-template-columns:1fr}.stat-card{min-height:135px}.client-form{grid-template-columns:1fr}.section-subtitle{display:none}.glass-panel{padding:21px}.brand-copy small{letter-spacing:1.2px;font-size:8px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+
+/* Responsive containment: every card must shrink with its grid track. */
+.site-shell,.workspace,.workspace-section,.workspace-two,.stats-grid,.glass-panel,.stat-card,.client-form{min-width:0;max-width:100%}
+.workspace{width:100%;box-sizing:border-box}
+.workspace-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.workspace-two>*{min-width:0}
+.client-form>*{min-width:0}
+.stat-value,.stat-foot,.panel-help,.section-subtitle{overflow-wrap:anywhere}
+.section-nav{max-width:100%;min-width:0;scrollbar-width:thin}
+.table-scroll{max-width:100%}
+@media(max-width:1180px){
+ .workspace{max-width:980px}
+ .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .stats-grid>.stat-card:last-child{grid-column:1/-1}
+ .workspace-two{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .site-header{max-width:100%;gap:10px}
+ .header-right{gap:8px}
+ .workspace{padding:18px 14px 45px}
+ .stats-grid{grid-template-columns:1fr}
+ .stats-grid>.stat-card:last-child{grid-column:auto}
+ .workspace-two{grid-template-columns:1fr}
+ .client-form{grid-template-columns:1fr}
+ .glass-panel{padding:20px}
+}
