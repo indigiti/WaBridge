@@ -1,0 +1,18 @@
+name: PHP checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+      - name: Check no secrets were committed
+        run: |
+          test ! -e config.php
+          test ! -e .env
+          test ! -d whatsapp_sessions
