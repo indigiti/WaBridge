@@ -11,7 +11,10 @@ function copyDirectory(string $from,string $to): void {
     foreach (new DirectoryIterator($from) as $entry) {
         if ($entry->isDot()) continue;
         $name=$entry->getFilename();
-        if (in_array($name,['.git','.env','config.php','runtime','release','vendor'],true)) continue;
+        if (in_array($name,['.git','.env','config.php','runtime','release'],true)) continue;
+        // Preserve vendored browser-only QR renderer in public assets. Never
+        // package server-side Composer/vendor dependencies or credentials.
+        if ($name==='vendor' && !str_ends_with(str_replace('\\','/',$from),'/public/assets')) continue;
         $src=$entry->getPathname();$dest=$to.'/'.$name;
         if ($entry->isLink()) throw new RuntimeException('Symlink prohibited in release: '.$name);
         if ($entry->isDir()) copyDirectory($src,$dest);
