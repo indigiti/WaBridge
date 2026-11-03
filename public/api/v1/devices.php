@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require dirname(__DIR__,3).'/src/store.php';
+require dirname(__DIR__,2).'/_loader.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 function reply(int $status,array $data): never {
