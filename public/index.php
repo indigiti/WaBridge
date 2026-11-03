@@ -145,13 +145,9 @@ if ($authed) {
     .section-nav{display:flex;gap:20px;overflow:auto}.table-scroll{overflow-x:auto}.site-footer{padding:25px;text-align:center;font-size:12px;color:#667d92}
     @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
   </style>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v5.css?v=5">
   <?php if ($authed): ?>
-    <link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
-    <link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
     <script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
-  <?php else: ?>
-    <link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
   <?php endif; ?>
 </head>
 <body class="<?= $authed ? 'dashboard-page page-view-'.escape($view) : 'auth-page' ?>">
