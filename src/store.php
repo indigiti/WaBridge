@@ -37,6 +37,14 @@ function store(): PDO {
       id TEXT PRIMARY KEY, session_id TEXT, event_type TEXT, received_at INTEGER NOT NULL, payload TEXT NOT NULL
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_events_date ON events(received_at)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS event_deliveries (
+      event_id TEXT NOT NULL, subscriber_id TEXT NOT NULL, state TEXT NOT NULL DEFAULT "queued",
+      attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL, last_http INTEGER,
+      PRIMARY KEY(event_id,subscriber_id),
+      FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_event_delivery_ready ON event_deliveries(state,next_at)');
     return $pdo;
 }
 function client_auth(): ?array {
