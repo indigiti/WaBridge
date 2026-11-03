@@ -39,6 +39,16 @@ See [DigiOps deployment](docs/DIGIOPS.md). No live Cloudways route verification 
 
 A running supervised Rust gateway is still necessary for actual QR pairing and message delivery. A PHP webpage cannot safely install or supervise a daemon on Cloudways without provider support.
 
+## Optimization and acceptance (P0–P5)
+
+- **Cloudways package optimization:** the deployment bundle includes only the pinned glibc 2.31-compatible Waxum v0.16.1 archive. The older incompatible upstream archive is no longer shipped.
+- **Premium front end:** a deterministic single CSS bundle with locally hosted, SIL OFL-licensed Inter fonts and accessibility-conscious glass effects (no Node.js).
+- **Monitoring:** the authenticated /wabridge/performance page measures Rust RSS, peak RSS, threads, short-interval CPU and bounded private disk usage when readable from PHP.
+- **Verification:** /wabridge/verification distinguishes local API readiness from actual QR pairing, gateway acceptance, matching delivery receipts and session persistence after a Supervisor restart.
+- **Rust Lite:** a separate experimental GitHub workflow attempts a smaller build. This is intentionally NOT selected by DigiOps or installed on Cloudways; it requires successful compilation and real-device parity verification.
+
+Full acceptance and rollback instructions: [P0–P5 optimization runbook](docs/OPTIMIZATION-P0-P5.md).
+
 ## Requirements
 
 PHP 8.2+, cURL, mbstring, JSON, session support and filesystem locks. PDO SQLite is optional for the JSON testing mode, but required for migrating existing SQLite data. HTTPS and a public/ document root are required. Keep config.php and runtime/ outside public_html.
