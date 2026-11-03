@@ -49,10 +49,11 @@ $requireFragments($htaccess,[
     'RewriteEngine On','RewriteBase /wabridge/',
     'RewriteRule ^messages/?$','RewriteRule ^gateway/?$',
     'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
-    'RewriteRule ^diagnostics/?
+    'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
+    'RewriteRule ^performance/?$',
     'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
     'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
-    'THE_REQUEST','REQUEST_METHOD', 'RewriteRule ^_loader'
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
 ],'Cloudways pretty-route configuration');
 if(!str_contains($htaccess,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
     throw new RuntimeException('Pretty URL redirects may affect POST requests');
