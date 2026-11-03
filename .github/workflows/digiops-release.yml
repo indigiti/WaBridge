@@ -17,6 +17,7 @@ jobs:
           php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
           php tests/smoke.php
           php tests/queue.php
+          php tests/loader.php
       - name: Assemble DigiOps public/private payload
         run: |
           php tools/package-release.php
