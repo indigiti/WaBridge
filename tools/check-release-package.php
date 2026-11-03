@@ -67,7 +67,8 @@ if (!str_contains($layout,'function ui_shell_start') || !str_contains($layout,'f
     throw new RuntimeException('Shared admin shell missing');
 $routes=(string)file_get_contents($path.'/public/.htaccess');
 foreach (['^messages/?$','^gateway/?$','^storage/?$','^qr/?$',
-          '^diagnostics/?,'^api/diagnostics/?$','^api/reports/?$'] as $route) {
+          '^diagnostics/?$','^reports/?$','^performance/?$',
+          '^api/diagnostics/?$','^api/reports/?$'] as $route) {
     if (!str_contains($routes,$route)) throw new RuntimeException('Pretty URL missing: '.$route);
 }
 $fixedDigests=[
