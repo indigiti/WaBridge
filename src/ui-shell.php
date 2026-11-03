@@ -95,9 +95,7 @@ function ui_breadcrumb(string $section,string $title):void {
 }
 function ui_head_assets():void {
 ?>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css?v=3">
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-console-v3.css?v=2">
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-glass-v4.css?v=1">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v5.css?v=5">
   <script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
 <?php
 }
