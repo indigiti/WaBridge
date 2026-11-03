@@ -29,7 +29,7 @@ if ($action==='revoke') {
     $q->execute([$id]);echo "Revoked ".$q->rowCount()." client(s)\n";exit(0);
 }
 if ($action==='list') {
-    foreach ($db->query('SELECT id,sessions_json,per_minute,active,created_at FROM api_clients ORDER BY id') as $row) {
+    foreach (storage_clients() as $row) {
         echo $row['id']." sessions=".$row['sessions_json']." rate=".$row['per_minute']." active=".$row['active']."\n";
     }
     exit(0);
