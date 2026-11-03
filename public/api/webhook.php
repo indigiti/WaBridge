@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require dirname(__DIR__,2).'/src/store.php';
+require dirname(__DIR__).'/_loader.php';
 header('Content-Type: application/json');
 if (($_SERVER['REQUEST_METHOD']??'')!=='POST') { http_response_code(405);exit; }
 $secret=(string)(config()['webhook_secret']??'');
