@@ -1,0 +1,89 @@
+/* WaBridge Typography v5
+ * Self-hosted Inter Regular/Semibold/Bold, SIL OFL 1.1.
+ * Critical content remains readable in the system sans-serif fallback.
+ */
+@font-face{
+ font-family:"WaBridge Inter";font-style:normal;font-weight:400;font-display:swap;
+ src:url("/wabridge/assets/fonts/inter-latin-400.woff2") format("woff2")
+}
+@font-face{
+ font-family:"WaBridge Inter";font-style:normal;font-weight:600;font-display:swap;
+ src:url("/wabridge/assets/fonts/inter-latin-600.woff2") format("woff2")
+}
+@font-face{
+ font-family:"WaBridge Inter";font-style:normal;font-weight:700;font-display:swap;
+ src:url("/wabridge/assets/fonts/inter-latin-700.woff2") format("woff2")
+}
+:root{
+ --wb-font:"WaBridge Inter",Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --wb-font-mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+ --wb-text-xs:.775rem;--wb-text-sm:.875rem;--wb-text-base:.9375rem;
+ --wb-h1:clamp(2rem,2.8vw,2.5rem);--wb-h2:1.375rem;--wb-h3:1.125rem;
+ --wb-line:1.56
+}
+html{font-size:16px;font-feature-settings:"kern";text-rendering:optimizeLegibility}
+body,button,input,select,textarea,summary{font-family:var(--wb-font);font-synthesis:none}
+body{font-size:var(--wb-text-base);line-height:var(--wb-line)}
+.dashboard-page .console-body .workspace-top h1,
+.dashboard-page .workspace-top h1{
+ font-family:var(--wb-font)!important;font-size:var(--wb-h1);font-weight:700;
+ line-height:1.16;letter-spacing:-.037em;text-wrap:balance
+}
+.dashboard-page .console-body .section-heading h2,
+.dashboard-page .console-body .panel-heading h2,
+.dashboard-page .panel-heading h2,
+.dashboard-page .glass-panel h2{
+ font-family:var(--wb-font)!important;font-size:var(--wb-h2);font-weight:700;
+ letter-spacing:-.027em;line-height:1.25
+}
+.dashboard-page .auth-card h1,.auth-page .auth-card h1{
+ font-family:var(--wb-font)!important;font-size:clamp(2.15rem,4.3vw,3rem);
+ font-weight:700;letter-spacing:-.045em;line-height:1.14
+}
+.dashboard-page .stat-card .stat-value,.dashboard-page .console-body .stat-value{
+ font-family:var(--wb-font);font-size:clamp(1.7rem,2.6vw,2.2rem);
+ font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.04em
+}
+.dashboard-page .glass-panel .panel-help,
+.dashboard-page .console-body .panel-help,.dashboard-page .workspace-top .lead,
+.dashboard-page .console-body .workspace-top .lead{
+ font-size:var(--wb-text-sm);font-weight:400;line-height:1.65;letter-spacing:0
+}
+.dashboard-page .console-nav-link,.dashboard-page .console-nav-link .nav-label{
+ font-size:.875rem;font-weight:600;letter-spacing:-.006em
+}
+.dashboard-page .console-nav-group summary,
+.dashboard-page .console-sidebar-heading{font-size:.725rem;font-weight:700;letter-spacing:.065em}
+.dashboard-page .console-breadcrumbs,.dashboard-page .workspace .eyebrow{
+ font-size:.75rem;font-weight:700;letter-spacing:.055em
+}
+.dashboard-page table{font-size:.84rem;line-height:1.55}
+.dashboard-page table th{font-size:.735rem;font-weight:700;letter-spacing:.04em}
+.dashboard-page .field label,.dashboard-page .message-filter label{
+ font-size:.82rem;font-weight:600
+}
+.dashboard-page input,.dashboard-page textarea,.dashboard-page select,
+.dashboard-page .button,.dashboard-page button{font-size:.875rem}
+.dashboard-page small,.dashboard-page .stat-foot{font-size:.775rem;line-height:1.5}
+.dashboard-page .subtle-tag,.dashboard-page .data-badge{font-size:.76rem;font-weight:600}
+.dashboard-page .console-body .stat-label{font-size:.83rem;font-weight:600}
+.dashboard-page code,.dashboard-page pre,.dashboard-page input[readonly][spellcheck=false]{
+ font-family:var(--wb-font-mono)
+}
+/* Keep blur on the app shell, not on every table row or nested content. */
+.dashboard-page .glass-panel,.dashboard-page .stat-card{
+ -webkit-backdrop-filter:blur(14px) saturate(110%)!important;
+ backdrop-filter:blur(14px) saturate(110%)!important
+}
+.dashboard-page .table-scroll,.dashboard-page table,.dashboard-page tbody td{
+ -webkit-backdrop-filter:none!important;backdrop-filter:none!important
+}
+@media(max-width:740px){
+ :root{--wb-h1:1.875rem;--wb-h2:1.25rem}
+ .dashboard-page .glass-panel,.dashboard-page .stat-card{
+  -webkit-backdrop-filter:blur(8px)!important;backdrop-filter:blur(8px)!important
+ }
+}
+@media(prefers-reduced-transparency:reduce){
+ .dashboard-page .glass-panel,.dashboard-page .stat-card{background:#fff!important;backdrop-filter:none!important}
+}
