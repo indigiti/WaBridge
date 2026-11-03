@@ -18,6 +18,8 @@ jobs:
           php -r "exit(extension_loaded('pdo_sqlite') ? 0 : 1);"
       - name: Queue integration tests
         run: php tests/queue.php
+      - name: SQLite enqueue benchmark (informational)
+        run: php benchmarks/sqlite.php 100
       - name: Check no secrets were committed
         run: |
           test ! -e config.php
