@@ -76,6 +76,8 @@ function limit_client(PDO $db, array $client): bool {
 function enqueue_message(PDO $db, array $client, string $sid, string $to, string $body, string $idem): array {
     if (!$client['sessions'] || !in_array($sid, $client['sessions'], true)) throw new InvalidArgumentException('Session not assigned to this API client');
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D', $idem)) throw new InvalidArgumentException('Idempotency-Key required, 8–128 safe characters');
+    $db->exec('BEGIN IMMEDIATE');
+    try {
     // A bounded queue prevents runaway disk usage under gateway outages.
     $existing = $db->prepare('SELECT id FROM jobs WHERE client_id=? AND idem=?');
     $existing->execute([$client['id'],$idem]);
@@ -96,7 +98,13 @@ function enqueue_message(PDO $db, array $client, string $sid, string $to, string
         $s = $db->prepare('SELECT body FROM jobs WHERE id=?'); $s->execute([$row['id']]);
         if (!hash_equals((string)$s->fetchColumn(), $body)) throw new InvalidArgumentException('Idempotency key reused with different message');
     }
-    return ['id'=>$row['id'],'state'=>$row['state'],'duplicate'=>$row['id'] !== $id];
+    $result=['id'=>$row['id'],'state'=>$row['state'],'duplicate'=>$row['id'] !== $id];
+    $db->commit();
+    return $result;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $e;
+    }
 }
 function claim_job(PDO $db): ?array {
     $now = time();
