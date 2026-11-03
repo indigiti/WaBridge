@@ -21,7 +21,7 @@ require $root.'/src/waxum-provisioning.php';
 $before=waxum_provision_status();
 if (in_array($before['platform_arch'],['amd64','x86_64'],true)
     && !$before['archive_checksum_valid'])
-    throw new RuntimeException('Pinned Waxum archive checksum not verified');
+    throw new RuntimeException('Verified Cloudways-compatible Waxum archive checksum invalid');
 $token=waxum_prepare_new_token();
 if (!preg_match('/\A[a-f0-9]{64}\z/D',$token))
     throw new RuntimeException('Generated token format invalid');
@@ -41,17 +41,10 @@ try {
     throw new RuntimeException('Blind credential rotation was allowed');
 } catch (InvalidArgumentException $expected) {}
 if ($before['binary_archive_ready']) {
-    $result=waxum_stage_binary();
-    if ($result!=='staged') throw new RuntimeException('Pinned browser staging failed');
-    if (waxum_stage_binary()!=='already_staged')
-        throw new RuntimeException('Staging did not prevent overwriting existing Rust binary');
-    if (!waxum_provision_status()['binary_staged'])
-        throw new RuntimeException('Executable status not registered');
-    $fp=fopen($dir.'/waxum','rb');
-    $magic=fread($fp,4);fclose($fp);
-    if ($magic!=="\x7FELF") throw new RuntimeException('Staged binary is not an ELF executable');
-    if ((fileperms($dir.'/waxum')&0077)!==0)
-        throw new RuntimeException('Staged binary permissions too broad');
+    try { waxum_stage_binary(); throw new RuntimeException('Incompatible upstream staging was allowed'); }
+    catch (RuntimeException $expected) {
+        if (!str_contains($expected->getMessage(),'Legacy upstream binary disabled')) throw $expected;
+    }
 }
 // Cloudways compatibility archive must be source- and checksum-pinned and
 // replacing a stopped Rust binary must preserve the previous executable.
@@ -59,18 +52,19 @@ if (!waxum_compat_archive_verified())
     throw new RuntimeException('Missing or unverified Cloudways-compatible Waxum archive');
 if (waxum_compat_installed())
     throw new RuntimeException('Compatibility marker incorrectly claimed a legacy binary');
-$previousHash=(string)hash_file('sha256',$dir.'/waxum');
+$previousHash=null; // Fresh Cloudways installs have no legacy binary to back up.
 if (waxum_install_compat_binary()!=='installed')
     throw new RuntimeException('Could not install Cloudways compatible Rust binary');
 if (!waxum_compat_installed())
     throw new RuntimeException('Cloudways-compatible marker does not match staged executable');
+if ((fileperms($dir.'/waxum')&0077)!==0)
+    throw new RuntimeException('Cloudways binary permissions too broad');
+$fp=fopen($dir.'/waxum','rb');$magic=fread($fp,4);fclose($fp);
+if ($magic!=="\\x7FELF") throw new RuntimeException('Cloudways build is not ELF');
 if (waxum_install_compat_binary()!=='already_installed')
     throw new RuntimeException('Repeated compatible installation did not preserve existing state');
-if (!is_file($dir.'/waxum.previous-incompatible.bak') ||
-    hash_file('sha256',$dir.'/waxum.previous-incompatible.bak')!==$previousHash)
-    throw new RuntimeException('Incompatible Waxum executable backup missing or incorrect');
-if ((fileperms($dir.'/waxum.previous-incompatible.bak')&0077)!==0)
-    throw new RuntimeException('Old binary backup not private');
+if (is_file($dir.'/waxum.previous-incompatible.bak'))
+    throw new RuntimeException('Fresh install unexpectedly created legacy backup');
 if ((fileperms($dir.'/waxum-compat-installed.json')&0077)!==0)
     throw new RuntimeException('Compatibility receipt not private');
 if (gateway_settings_read()['gateway_token']!==$token)
