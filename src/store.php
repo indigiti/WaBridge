@@ -210,3 +210,5 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
     $stmt->execute([$map[$rawState],time(),$eventId,$messageId]);
     return $stmt->rowCount()===1;
 }
+
+require_once __DIR__.'/storage-services.php';
