@@ -30,7 +30,7 @@ $policy=$job===null?null:message_retry_policy($job);
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message trace · WaBridge</title>
 <?php ui_head_assets(); ?></head><body class="dashboard-page">
-<?php ui_shell_start('trace'); ?>
+<?php ui_shell_start('messages'); ?>
 <main class="workspace" id="main-content">
 <?php ui_breadcrumb('Messaging','Message trace'); ?>
 <div class="workspace-top"><div><div class="eyebrow">DELIVERY / TRACE</div><h1>Message trace</h1><p class="lead">Evidence-based lifecycle of one message. No message body or unmasked phone number is exposed.</p></div><a class="button button-ghost" href="/wabridge/messages">All message activity</a></div>
