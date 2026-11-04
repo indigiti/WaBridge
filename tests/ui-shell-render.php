@@ -26,6 +26,6 @@ ob_start();ui_breadcrumb('Workspace','Diagnostics');$crumb=(string)ob_get_clean(
 if(!str_contains($crumb,'aria-label="Breadcrumb"') || !str_contains($crumb,'Diagnostics'))
     throw new RuntimeException('Breadcrumb did not render');
 ob_start();ui_head_assets();$assets=(string)ob_get_clean();
-if(!str_contains($assets,'wabridge-ui-v5.css') || !str_contains($assets,'wabridge-console-v3.js'))
+if(!str_contains($assets,'wabridge-ui-v6.css') || !str_contains($assets,'wabridge-console-v3.js'))
     throw new RuntimeException('Shared console assets are missing');
 echo "Shared glass shell rendered across 13 routes with CSRF logout, navigation, breadcrumbs and mobile controls: PASS\n";
