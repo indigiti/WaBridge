@@ -52,6 +52,8 @@ complete_job($db,$job1['id'],'accepted',200,'{}');
 $q=$db->prepare('SELECT state FROM jobs WHERE id=?');
 $q->execute([$job1['id']]);
 eq($q->fetchColumn(),'accepted','Completed job state');
+eq(array_column(storage_message_timeline($job1['id']),'state'),
+    ['queued','processing','accepted'],'SQLite event journal records actual transitions');
 $secret=rtrim(strtr(base64_encode(random_bytes(32)),'+/','-_'),'=');
 $hash=hash('sha256',$secret);
 $s=$db->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at) VALUES(?,?,?,?,?)');
@@ -70,6 +72,14 @@ eq(update_receipt_from_event($db,'event-000002',['message_id'=>'unknown','status
 $stmt=$db->prepare('SELECT state FROM message_receipts WHERE job_id=?');
 $stmt->execute([$receiptJob['id']]);
 eq($stmt->fetchColumn(),'delivered','Receipt must be delivered');
+eq(update_receipt_from_event($db,'event-out-of-order-003',
+    ['message_id'=>'provider-message-123','status'=>'sent']),true,
+    'Late sent webhook should match');
+$stmt->execute([$receiptJob['id']]);
+eq($stmt->fetchColumn(),'delivered','SQLite receipt status must not regress');
+$verifiedHistory=storage_message_timeline($receiptJob['id']);
+eq(count(array_filter($verifiedHistory,static fn(array $r):bool=>$r['state']==='sent')),
+    0,'Ignored stale receipt must not create a false timeline event');
 audit_event('test_action','test_actor','test_target');
 eq((int)$db->query("SELECT COUNT(*) FROM audit_entries WHERE event='test_action'")->fetchColumn(),1,'Audit insert');
 $features=engine_capabilities();

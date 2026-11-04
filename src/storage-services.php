@@ -35,7 +35,7 @@ function storage_queue_stats(): array {
  * queued (zero gateway calls) instead of incorrectly marking them sent.
  */
 function storage_queued_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
-    if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+    if($jobId!==null&&!valid_job_id($jobId))
         throw new InvalidArgumentException('Invalid job ID');
     if($db instanceof JsonStore)return $db->queuedJob($jobId);
     if($jobId!==null){
@@ -161,7 +161,7 @@ function storage_reports(): array {
         'receipts'=>$db->query('SELECT state,COUNT(*) AS count FROM message_receipts GROUP BY state')->fetchAll(),
         'event_types'=>$db->query('SELECT event_type,COUNT(*) AS count FROM events GROUP BY event_type ORDER BY count DESC LIMIT 20')->fetchAll(),
         'api_clients'=>$db->query('SELECT id,active,per_minute,expires_at,last_used_at FROM api_clients ORDER BY id LIMIT 100')->fetchAll(),
-        'audit'=>$db->query('SELECT event,actor,target,at FROM audit_entries ORDER BY id DESC LIMIT 50')->fetchAll(),
+        'audit'=>$db->query('SELECT guid,event,actor,target,at FROM audit_entries ORDER BY id DESC LIMIT 10')->fetchAll(),
         'storage'=>['driver'=>'sqlite','bytes'=>(int)@filesize(dirname(__DIR__).'/runtime/wabridge.sqlite'),'single_server_test_mode'=>false],
     ];
 }

@@ -68,6 +68,18 @@ function admin_authenticated(): bool {
     $_SESSION['last_seen']=$now;
     return true;
 }
+/** Generate RFC 4122 UUIDv4 for new internal records. */
+function wabridge_guid(): string {
+    $b=random_bytes(16);
+    $b[6]=chr((ord($b[6])&0x0f)|0x40);
+    $b[8]=chr((ord($b[8])&0x3f)|0x80);
+    $h=bin2hex($b);
+    return substr($h,0,8).'-'.substr($h,8,4).'-'.substr($h,12,4).'-'.substr($h,16,4).'-'.substr($h,20);
+}
+/** Legacy 32-hex IDs stay readable; UUIDv4 is used for new jobs. */
+function valid_job_id(string $id): bool {
+    return preg_match('/\\A(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\\z/D',$id)===1;
+}
 function escape(string $v): string { return htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function valid_session_id(string $v): bool { return preg_match('/\A[a-zA-Z0-9_-]{1,64}\z/D', $v) === 1; }
 function permitted_session(string $sid): bool {

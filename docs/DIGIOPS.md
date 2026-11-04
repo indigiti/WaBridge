@@ -26,7 +26,7 @@ DigiOps deploys this exact artifact; it does not build PHP or run the Rust proto
 3. Configure private_html/wabridge/config.php from config.example.php (not in Git). Use a valid admin password hash, strong gateway token, private gateway URL and webhook secret.
 4. Ensure private_html/wabridge/runtime/ is writable by PHP, and never exposed over HTTP.
 5. Set the private Rust Waxum service on a separately supervised host or an approved persistent-process environment. PHP alone cannot scan a real WhatsApp QR or send messages.
-6. Configure Cloudways cron for PHP cli/worker.php and cli/webhooks.php under private_html/wabridge/cli, not the public path.
+6. Configure Cloudways cron for PHP cli/worker.php and cli/webhooks.php under private_html/wabridge/cli, not the public path. An optional five-minute private cli/watchdog.php observes session connections and creates a snapshot for Diagnostics.
 7. Back up existing private configuration and SQLite/session state before the first deployment.
 
 ## Deploy and validate

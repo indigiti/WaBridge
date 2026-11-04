@@ -18,8 +18,11 @@ require $root.'/src/message-log.php';
 require $root.'/src/message-processor.php';
 function ensure(bool $cond,string $message):void{if(!$cond)throw new RuntimeException($message);}
 $db=store();
+ensure(valid_job_id('0123456789abcdef0123456789abcdef'),'legacy job references remain valid');
+ensure(!valid_job_id('not-a-guid'),'invalid job references rejected');
 $client=['id'=>'admin','sessions'=>['test-01','test-02'],'limit'=>20];
 $queued=enqueue_message($db,$client,'test-01','919876543210','Private sensitive message','message-log-test-01');
+ensure(valid_job_id($queued['id'])&&str_contains($queued['id'],'-'),'new jobs must expose UUIDv4');
 ensure(message_log_effective_status(['state'=>'queued'])==='queued','queued state');
 ensure(message_log_mask_recipient('919876543210')==='••••3210','recipient mask');
 $before=storage_admin_messages(20);
@@ -36,6 +39,21 @@ ensure(message_log_effective_status($after[0])==='accepted','HTTP 200 must not i
 ensure(update_receipt_from_event($db,'event-test-001',['message_id'=>'unmatched','status'=>'delivered'])===false,'unknown provider ID not matched');
 ensure(update_receipt_from_event($db,'event-test-002',['message_id'=>'provider-message-test','status'=>'delivered'])===true,'delivery must match provider ID');
 ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered','verified delivery');
+ensure(update_receipt_from_event($db,'event-test-old-sent',['message_id'=>'provider-message-test','status'=>'sent'])===true,
+    'late sent receipt should be accepted as matching event');
+ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered',
+    'Out-of-order sent receipt may not downgrade delivery');
+ensure(update_receipt_from_event($db,'event-test-old-fail',['message_id'=>'provider-message-test','status'=>'failed'])===true,
+    'late failed receipt should be matched');
+ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered',
+    'Late failed receipt may not erase delivery evidence');
+$stateCounts=storage_message_status_counts();
+ensure($stateCounts['delivered']===1&&$stateCounts['accepted']===0,
+    'Delivered jobs must not be double-counted as gateway-accepted');
+$timeline=storage_message_timeline($queued['id']);
+ensure(array_column($timeline,'state')===['queued','processing','accepted','delivered'],
+    'Real lifecycle transitions must be recorded without fabrication');
+foreach($timeline as $entry)ensure(valid_job_id((string)$entry['guid']),'Lifecycle event must have GUID');
 $failed=enqueue_message($db,$client,'test-01','919876543210','Other message','message-log-test-02');
 $r=process_next_message($db,static fn()=>['http'=>503,'data'=>['error'=>'upstream']]);
 ensure($r['state']==='needs_review' && $r['id']===$failed['id'],'gateway error needs review');
@@ -117,4 +135,20 @@ ensure(count($sends)===1&&str_contains($sends[0],'/test-02/'),
 ensure(storage_queued_job($db,$offline['id'])!==null,
        'offline job must not be claimed during connected session dispatch');
 
-echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";
+$byId=storage_message_detail($target['id']);
+ensure($byId!==null&&$byId['id']===$target['id']&&!isset($byId['body']),
+   'direct message detail must retrieve only projected fields');
+$onePage=storage_message_page(1,2);
+ensure(count($onePage['rows'])===2&&$onePage['has_next'],'bounded message page');
+$filter=storage_message_page(1,25,'','',$target['id']);
+ensure(count($filter['rows'])===1&&$filter['rows'][0]['id']===$target['id'],
+    'exact UUID filter does not depend on a 200-row preview');
+for($i=0;$i<35;$i++)audit_event('test_change','test-operator','target-'.(string)$i);
+$preview=storage_reports()['audit'];
+ensure(count($preview)===10,'Reports must read only 10 recent audit events');
+$firstAudit=storage_audit_page(1,25);
+$secondAudit=storage_audit_page(2,25);
+ensure(count($firstAudit['events'])===25&&$firstAudit['has_next'],'first audit page bounded to 25');
+ensure(count($secondAudit['events'])===10&&!$secondAudit['has_next'],'last audit page bounded to remaining events');
+ensure(valid_job_id((string)$firstAudit['events'][0]['guid']),'new administrator events need GUIDs');
+echo "Message activity, GUID history, audit pagination and no ambiguous retries: PASS\n";

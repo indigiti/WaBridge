@@ -65,9 +65,9 @@ $read=report_group_count($report['receipts'],'read');
  <?php endforeach; ?><?php if(!$report['event_types']):?><tr><td colspan="2" class="empty-cell">No stored webhook events.</td></tr><?php endif; ?>
  </tbody></table></div>
  </section>
- <section class="glass-panel"><div class="panel-heading"><div><div class="eyebrow">AUDIT</div><h2>Recent administrator events</h2></div></div>
+ <section class="glass-panel"><div class="panel-heading"><div><div class="eyebrow">AUDIT</div><h2>Recent administrator events</h2></div><a class="button button-ghost button-small" href="/wabridge/audit">View full history</a></div>
  <div class="table-scroll report-table"><table><thead><tr><th>When (UTC)</th><th>Event</th><th>Actor</th></tr></thead><tbody>
- <?php foreach(array_slice((array)$report['audit'],0,30) as $row):if(!is_array($row))continue; ?>
+ <?php foreach(array_slice((array)$report['audit'],0,10) as $row):if(!is_array($row))continue; ?>
  <tr><td><?= escape(gmdate('Y-m-d H:i',(int)($row['at']??0))) ?></td><td><?= escape((string)($row['event']??'unknown')) ?></td><td><?= escape((string)($row['actor']??'')) ?></td></tr>
  <?php endforeach; ?><?php if(!$report['audit']):?><tr><td colspan="3" class="empty-cell">No recent audit events.</td></tr><?php endif; ?>
  </tbody></table></div>

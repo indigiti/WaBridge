@@ -56,3 +56,14 @@ PHP 8.2+, cURL, mbstring, JSON, session support and filesystem locks. PDO SQLite
 ## Release status
 
 Integration preview. Automated tests cover JSON storage, legacy SQLite, migration safeguards, API keys and queue state. Live Rust pairing, message receipts and persistent process supervision require real-host validation. Do not treat synthetic SQLite benchmarks as WhatsApp throughput measurements.
+
+## Reliability foundation: GUIDs, audit pagination and monitored sessions
+
+- New message jobs use RFC 4122 UUIDv4; old 32-character lowercase hex job IDs remain queryable. API application slugs and external WhatsApp session IDs are intentionally unchanged because those are public integration/provider contracts.
+- Reports displays only 10 administrator events. Use the dedicated authenticated /wabridge/audit route for 25-record pages, each fetched from a bounded read model rather than the entire event table.
+- Message activity at /wabridge/messages has 25-record server-side pages and exact GUID filters. /wabridge/trace?id=JOB_ID exposes a privacy-safe delivery event journal for new jobs; old records show the available latest checkpoints without fabricated history.
+- A private CLI watchdog (cli/watchdog.php) can check up to eight permitted sessions every five minutes; Diagnostics reads its snapshot, never performs expensive session probes on each page request. Reconnection is **observed**, not forced by undocumented provider commands.
+- Retry decisions fail closed: queued unclaimed jobs may be processed normally once connected; uncertain send outcomes are not automatically retried.
+- JSON is strictly single-server testing mode. SQLite journals use indexed lookups; a high-volume multi-tenant product requires a transactional production database, load tests and real-host verification.
+
+Never interpret successful CI, gateway HTTP acceptance or a watchdog 'connected' state as verified WhatsApp delivery.

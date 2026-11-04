@@ -55,6 +55,17 @@ function store(): PDO|JsonStore {
       UNIQUE (client_id, idem)
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_ready ON jobs(state,next_at)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_created ON jobs(created_at DESC,id DESC)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS message_timeline (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      guid TEXT NOT NULL UNIQUE,
+      job_id TEXT NOT NULL,
+      state TEXT NOT NULL,
+      proof TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_message_timeline_job_seq ON message_timeline(job_id,seq)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS message_receipts (
       job_id TEXT NOT NULL, provider_id TEXT NOT NULL UNIQUE,
       state TEXT NOT NULL, observed_at INTEGER NOT NULL, source_event_id TEXT,
@@ -62,9 +73,13 @@ function store(): PDO|JsonStore {
       FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
     )');
     $pdo->exec('CREATE TABLE IF NOT EXISTS audit_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, guid TEXT, event TEXT NOT NULL,
       actor TEXT NOT NULL, target TEXT, at INTEGER NOT NULL, details TEXT NOT NULL DEFAULT "{}"
     )');
+    // Existing rows retain their numeric internal ID. New events get a GUID.
+    $auditColumns=array_column($pdo->query('PRAGMA table_info(audit_entries)')->fetchAll(),'name');
+    if(!in_array('guid',$auditColumns,true))$pdo->exec('ALTER TABLE audit_entries ADD COLUMN guid TEXT');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS ix_audit_guid ON audit_entries(guid) WHERE guid IS NOT NULL');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_audit_at ON audit_entries(at)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS quotas (
       client_id TEXT NOT NULL, bucket INTEGER NOT NULL, used INTEGER NOT NULL,
@@ -153,7 +168,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         $pending->execute([$client['id']]);
         if ((int)$pending->fetchColumn() >= 1000) throw new RuntimeException('Queue capacity exhausted for client');
     }
-    $id = bin2hex(random_bytes(16)); $now = time();
+    $id = wabridge_guid(); $now = time();
     $stmt = $db->prepare('INSERT OR IGNORE INTO jobs(id,client_id,session_id,destination,body,idem,next_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)');
     $stmt->execute([$id,$client['id'],$sid,$to,$body,$idem,$now,$now,$now]);
     $q = $db->prepare('SELECT id,state,session_id,destination FROM jobs WHERE client_id=? AND idem=?');
@@ -166,6 +181,10 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         if (!hash_equals((string)$s->fetchColumn(), $body)) throw new InvalidArgumentException('Idempotency key reused with different message');
     }
     $result=['id'=>$row['id'],'state'=>$row['state'],'duplicate'=>$row['id'] !== $id];
+    if(!$result['duplicate']) {
+        $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+        $trace->execute([wabridge_guid(),$id,'queued','local_queue',time()]);
+    }
     $db->commit();
     return $result;
     } catch (Throwable $e) {
@@ -179,7 +198,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
  */
 function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
     storage_operational_guard();
-    if ($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+    if ($jobId!==null&&!valid_job_id($jobId))
         throw new InvalidArgumentException('Invalid job ID');
     if ($db instanceof JsonStore) return $db->claim($jobId);
     $now=time();
@@ -197,6 +216,10 @@ function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
             $update=$db->prepare("UPDATE jobs SET state='processing',attempts=attempts+1,updated_at=? WHERE id=? AND state='queued'");
             $update->execute([$now,$job['id']]);
             if ($update->rowCount()!==1)$job=null;
+            else {
+                $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+                $trace->execute([wabridge_guid(),(string)$job['id'],'processing','worker_claim',time()]);
+            }
         }
         $db->commit();
         return $job?:null;
@@ -208,21 +231,50 @@ function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
 function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, string $response = ''): void {
     storage_operational_guard();
     if ($db instanceof JsonStore) { $db->complete($id,$state,$code,$response);return; }
-    $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
-    $s->execute([$state,$code,substr($response,0,2000),time(),$id]);
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $now=time();
+        $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
+        $s->execute([$state,$code,substr($response,0,2000),$now,$id]);
+        if($s->rowCount()===1) {
+            $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+            $proof=$state==='accepted'?'gateway_accepted':'send_uncertain';
+            $trace->execute([wabridge_guid(),$id,$state,$proof,$now]);
+        }
+        $db->commit();
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
 }
 
 function audit_event(string $event,string $actor,string $target='',array $details=[]): void {
     // Never include plaintext messages, passwords, tokens or QR secrets.
     if (store() instanceof JsonStore) { store()->audit($event,$actor,$target,$details); return; }
-    $q=store()->prepare('INSERT INTO audit_entries(event,actor,target,at,details) VALUES(?,?,?,?,?)');
-    $q->execute([$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
+    $q=store()->prepare('INSERT INTO audit_entries(guid,event,actor,target,at,details) VALUES(?,?,?,?,?,?)');
+    $q->execute([wabridge_guid(),$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
 }
 function record_provider_message(PDO|JsonStore $db,string $jobId,string $providerId): void {
     if ($providerId==='' || strlen($providerId)>200) return;
     if ($db instanceof JsonStore) { $db->receiptSave($jobId,$providerId);return; }
     $q=$db->prepare("INSERT OR IGNORE INTO message_receipts(job_id,provider_id,state,observed_at) VALUES(?,?,'accepted',?)");
     $q->execute([$jobId,$providerId,time()]);
+}
+/**
+ * Receipt events can arrive out of order. A late 'sent' cannot undo a
+ * verified delivery/read; a late failure cannot erase delivery evidence.
+ * An authoritative later delivery/read can resolve a prior failed receipt.
+ */
+function receipt_state_can_advance(string $current,string $next):bool {
+    if($current===$next)return false;
+    return match($current) {
+        'read'=>false,
+        'delivered'=>$next==='read',
+        'failed'=>in_array($next,['delivered','read'],true),
+        'sent'=>in_array($next,['delivered','read','failed'],true),
+        'accepted'=>in_array($next,['sent','delivered','read','failed'],true),
+        default=>false,
+    };
 }
 function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $event): bool {
     // Never guess a receipt's job. Require an exact upstream message ID.
@@ -231,9 +283,30 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
     $map=['sent'=>'sent','delivered'=>'delivered','read'=>'read','played'=>'read','failed'=>'failed'];
     if ($messageId==='' || !isset($map[$rawState])) return false;
     if ($db instanceof JsonStore) return $db->receiptUpdate($messageId,$map[$rawState],$eventId);
-    $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
-    $stmt->execute([$map[$rawState],time(),$eventId,$messageId]);
-    return $stmt->rowCount()===1;
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $select=$db->prepare('SELECT job_id,state FROM message_receipts WHERE provider_id=? LIMIT 1');
+        $select->execute([$messageId]);
+        $match=$select->fetch();
+        if(!$match){$db->commit();return false;}
+        $next=$map[$rawState];$now=time();
+        $advance=receipt_state_can_advance((string)$match['state'],$next);
+        if($advance) {
+            $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
+            $stmt->execute([$next,$now,$eventId,$messageId]);
+        }
+        if($advance) {
+            $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+            $trace->execute([wabridge_guid(),(string)$match['job_id'],$next,'verified_provider_receipt',$now]);
+        }
+        $db->commit();
+        return true;
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
 }
 
 require_once __DIR__.'/storage-services.php';
+require_once __DIR__.'/audit-reader.php';
+require_once __DIR__.'/message-read.php';

@@ -36,10 +36,11 @@ function storage_migrate_to_json(): array {
                         'events'=>$old->query('SELECT * FROM events')->fetchAll(),
                         'deliveries'=>$old->query('SELECT * FROM event_deliveries')->fetchAll(),
                         'receipts'=>$old->query('SELECT * FROM message_receipts')->fetchAll(),
-                        'audit'=>$old->query('SELECT * FROM audit_entries ORDER BY id ASC')->fetchAll()
+                        'audit'=>$old->query('SELECT * FROM audit_entries ORDER BY id ASC')->fetchAll(),
+                        'timeline'=>$old->query('SELECT guid,job_id,state,proof,at FROM message_timeline ORDER BY seq ASC')->fetchAll()
                     ];
                     $snapshot=['clients'=>[],'jobs'=>[],'quotas'=>[],
-                        'events'=>[],'deliveries'=>[],'receipts'=>[],'audit'=>[]];
+                        'events'=>[],'deliveries'=>[],'receipts'=>[],'audit'=>[],'timeline'=>[]];
                     foreach ($source['clients'] as $row) {
                         $row['active']=(int)$row['active'];
                         $row['per_minute']=(int)$row['per_minute'];
@@ -57,9 +58,22 @@ function storage_migrate_to_json(): array {
                     foreach ($source['audit'] as $row) {
                         $details=json_decode((string)$row['details'],true);
                         $snapshot['audit'][]=[
+                            'guid'=>$row['guid']??null,
                             'event'=>$row['event'],'actor'=>$row['actor'],'target'=>$row['target'],
                             'at'=>(int)$row['at'],'details'=>is_array($details)?$details:[]
                         ];
+                    }
+                    foreach($source['timeline'] as $entry) {
+                        $jobId=(string)$entry['job_id'];
+                        $snapshot['timeline'][$jobId]??=[];
+                        $snapshot['timeline'][$jobId][]=[
+                            'guid'=>(string)$entry['guid'],
+                            'state'=>(string)$entry['state'],
+                            'proof'=>(string)$entry['proof'],
+                            'at'=>(int)$entry['at'],
+                        ];
+                        if(count($snapshot['timeline'][$jobId])>20)
+                            $snapshot['timeline'][$jobId]=array_slice($snapshot['timeline'][$jobId],-20);
                     }
                     $json=new JsonStore();
                     $json->importSnapshot($snapshot);

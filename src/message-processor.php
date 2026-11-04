@@ -15,7 +15,7 @@ declare(strict_types=1);
  * no real network preflight.
  */
 function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string $jobId=null, ?callable $probe=null): ?array {
-    if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+    if($jobId!==null&&!valid_job_id($jobId))
         throw new InvalidArgumentException('Invalid queued job ID');
     if($sender===null||$probe!==null) {
         // Explicit browser sends examine only the selected job. The CLI
