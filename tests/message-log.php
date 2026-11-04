@@ -132,4 +132,12 @@ ensure(count($onePage['rows'])===2&&$onePage['has_next'],'bounded message page')
 $filter=storage_message_page(1,25,'','',$target['id']);
 ensure(count($filter['rows'])===1&&$filter['rows'][0]['id']===$target['id'],
     'exact UUID filter does not depend on a 200-row preview');
-echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";
+for($i=0;$i<35;$i++)audit_event('test_change','test-operator','target-'.(string)$i);
+$preview=storage_reports()['audit'];
+ensure(count($preview)===10,'Reports must read only 10 recent audit events');
+$firstAudit=storage_audit_page(1,25);
+$secondAudit=storage_audit_page(2,25);
+ensure(count($firstAudit['events'])===25&&$firstAudit['has_next'],'first audit page bounded to 25');
+ensure(count($secondAudit['events'])===10&&!$secondAudit['has_next'],'last audit page bounded to remaining events');
+ensure(valid_job_id((string)$firstAudit['events'][0]['guid']),'new administrator events need GUIDs');
+echo "Message activity, GUID history, audit pagination and no ambiguous retries: PASS\n";

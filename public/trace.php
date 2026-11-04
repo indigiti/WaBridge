@@ -26,6 +26,7 @@ if($job===null)http_response_code(404);
 $status=$job===null?'unknown':message_log_effective_status($job);
 $receipt=$job['receipt']??null;
 $policy=$job===null?null:message_retry_policy($job);
+$timeline=$job===null?[]:storage_message_timeline($id);
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message trace · WaBridge</title>
@@ -39,6 +40,23 @@ $policy=$job===null?null:message_retry_policy($job);
 <section class="glass-panel workspace-section">
 <div class="panel-heading"><div><div class="eyebrow">MESSAGE REFERENCE</div><h2><?= escape($id) ?></h2></div><span class="subtle-tag"><?= escape(message_log_status_text($status)) ?></span></div>
 <p class="panel-help">Session <?= escape((string)$job['session_id']) ?> · To <?= escape(message_log_mask_recipient((string)$job['destination'])) ?> · Attempts <?= (int)$job['attempts'] ?></p>
+<?php if($timeline):?>
+<div class="table-scroll"><table><thead><tr><th>Recorded state</th><th>Time (UTC)</th><th>Evidence</th><th>Event GUID</th></tr></thead><tbody>
+<?php foreach($timeline as $event):?>
+<tr><td><?= escape(message_log_status_text((string)$event['state'])) ?></td>
+<td><?= escape(message_log_time((int)$event['at'])) ?></td>
+<td><?= escape(match((string)$event['proof']) {
+    'local_queue'=>'Persisted in WaBridge queue only',
+    'worker_claim'=>'Worker claimed message; upstream outcome pending',
+    'gateway_accepted'=>'Waxum accepted message, delivery unconfirmed',
+    'verified_provider_receipt'=>'Verified provider-ID-correlated receipt event',
+    default=>'Outcome uncertain; do not auto-retry',
+}) ?></td>
+<td><small><?= escape((string)$event['guid']) ?></small></td></tr>
+<?php endforeach;?>
+</tbody></table></div>
+<?php else:?>
+<p class="panel-help">Legacy message: only the latest checkpoints were stored before the transition journal was introduced.</p>
 <div class="table-scroll"><table><thead><tr><th>Checkpoint</th><th>Observed at (UTC)</th><th>What it proves</th></tr></thead><tbody>
 <tr><td>Queued</td><td><?= escape(message_log_time((int)$job['created_at'])) ?></td><td>WaBridge accepted the job into local storage, not WhatsApp</td></tr>
 <?php if((int)$job['attempts']>0): ?>
@@ -53,8 +71,9 @@ $policy=$job===null?null:message_retry_policy($job);
 <tr><td><?= escape(ucfirst((string)$receipt['state'])) ?> receipt</td><td><?= escape(message_log_time((int)$receipt['observed_at'])) ?></td><td>Provider-ID-correlated signed event, latest known receipt state</td></tr>
 <?php endif; ?>
 </tbody></table></div>
+<?php endif;?>
 <p class="panel-help"><strong>Retry safety:</strong> <?= escape((string)$policy['reason']) ?>. Automated resend: disabled.</p>
-<p class="panel-help">Latest known status: <?= escape(message_log_status_text($status)) ?>. A live status timeline updates on refresh; historical intermediate receipt timestamps cannot be reconstructed from the current data model.</p>
+<p class="panel-help">Latest known status: <?= escape(message_log_status_text($status)) ?>. New messages retain actual state transitions; older records may have only their final checkpoint. Refresh to inspect new receipts.</p>
 </section>
 <?php else: ?><p class="notice notice-warning">No visible message matches this reference.</p><?php endif;?>
 </main><?php ui_shell_end(); ?></body></html>
