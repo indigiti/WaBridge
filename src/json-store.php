@@ -130,8 +130,8 @@ final class JsonStore {
         if(count($state['timeline'][$id])>20)
             $state['timeline'][$id]=array_slice($state['timeline'][$id],-20);
     }
-    public function enqueue(array $client,string $sid,string $to,string $body,string $idem): array {
-        return $this->mutate(static function(array &$s)use($client,$sid,$to,$body,$idem) {
+    public function enqueue(array $client,string $sid,string $to,string $body,string $idem,?int $sendAt=null): array {
+        return $this->mutate(static function(array &$s)use($client,$sid,$to,$body,$idem,$sendAt) {
             $count=0;
             foreach ($s['jobs'] as $existing) {
                 if ($existing['client_id']===$client['id'] && $existing['idem']===$idem) {
@@ -147,7 +147,7 @@ final class JsonStore {
             $s['jobs'][$id]=[
                 'id'=>$id,'client_id'=>$client['id'],'session_id'=>$sid,
                 'destination'=>$to,'body'=>$body,'idem'=>$idem,'state'=>'queued',
-                'attempts'=>0,'next_at'=>$now,'created_at'=>$now,'updated_at'=>$now,
+                'attempts'=>0,'next_at'=>$sendAt??$now,'created_at'=>$now,'updated_at'=>$now,
                 'response_code'=>null,'error'=>null,'engine_response'=>null
             ];
             // created_at already proves queue acceptance; no duplicate journal entry.

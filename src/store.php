@@ -153,11 +153,14 @@ function limit_client(PDO|JsonStore $db, array $client): bool {
         return $ok;
     } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
 }
-function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $to, string $body, string $idem): array {
+function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $to, string $body, string $idem, ?int $sendAt=null): array {
     storage_operational_guard();
     if (!$client['sessions'] || !in_array($sid, $client['sessions'], true)) throw new InvalidArgumentException('Session not assigned to this API client');
     if (!preg_match('/\A[a-zA-Z0-9._:-]{8,128}\z/D', $idem)) throw new InvalidArgumentException('Idempotency-Key required, 8–128 safe characters');
-    if ($db instanceof JsonStore) return $db->enqueue($client,$sid,$to,$body,$idem);
+    $sendAt??=time();
+    if($sendAt<time()-5||$sendAt>time()+30*86400)
+        throw new InvalidArgumentException('Schedule must be within the next 30 days');
+    if ($db instanceof JsonStore) return $db->enqueue($client,$sid,$to,$body,$idem,$sendAt);
     $db->exec('BEGIN IMMEDIATE');
     try {
     // A bounded queue prevents runaway disk usage under gateway outages.
@@ -170,7 +173,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
     }
     $id = wabridge_guid(); $now = time();
     $stmt = $db->prepare('INSERT OR IGNORE INTO jobs(id,client_id,session_id,destination,body,idem,next_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)');
-    $stmt->execute([$id,$client['id'],$sid,$to,$body,$idem,$now,$now,$now]);
+    $stmt->execute([$id,$client['id'],$sid,$to,$body,$idem,$sendAt,$now,$now]);
     $q = $db->prepare('SELECT id,state,session_id,destination FROM jobs WHERE client_id=? AND idem=?');
     $q->execute([$client['id'],$idem]);
     $row = $q->fetch();

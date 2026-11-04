@@ -45,7 +45,8 @@ function message_log_reason_code(array $row): string {
     $allowed=[
         'gateway_accepted','gateway_http_error','missing_provider_id','unexpected_scheduled_response',
         'transport_or_worker_failure','worker_interrupted','invalid_session',
-        'session_disconnected','session_status_unavailable','session_not_authorized'
+        'session_disconnected','session_status_unavailable','session_not_authorized',
+        'consent_revoked','consent_unavailable'
     ];
     if(in_array($value,$allowed,true))return $value;
     if(preg_match('/\Agateway_http_(?:0|[1-5][0-9]{2})\z/D',$value))return $value;
@@ -64,6 +65,8 @@ function message_log_reason_text(string $reason): string {
        'session_disconnected'=>'Session is not logged in with a live WhatsApp socket',
        'session_status_unavailable'=>'WhatsApp session status could not be confirmed',
        'session_not_authorized'=>'This application is not permitted to use that session',
+       'consent_revoked'=>'Recipient withdrew consent before scheduled dispatch; message was not sent',
+       'consent_unavailable'=>'Consent evidence could not be checked; message was not sent',
        default=>match($reason) {
            'gateway_http_401','gateway_http_403'=>'Gateway rejected authentication or authorization',
            'gateway_http_404'=>'Gateway could not find the WhatsApp session or route',
