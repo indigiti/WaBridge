@@ -83,7 +83,7 @@ jobs:
           git clone --depth 1 --branch v0.16.1 https://github.com/imtaqin/waxum.git waxum-src
           test "$(git -C waxum-src rev-parse HEAD)" = '851bedf3189bda742433ef57bc06e75be590860b'
 
-      - name: Disable native VoIP relay + Opus; retain encoded call and messaging
+      - name: Disable native VoIP relay + Opus; retain MLOW codec and messaging
         working-directory: waxum-src
         run: |
           python3 - <<'PY'
@@ -91,7 +91,7 @@ jobs:
           path = Path("Cargo.toml")
           original = path.read_text()
           old = 'default-features = true, features = ["voip", "tracing"]'
-          new = 'default-features = false, features = ["sqlite-storage", "sqlite-storage-bundled", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal", "voip-encoded", "tracing"]'
+          new = 'default-features = false, features = ["sqlite-storage", "sqlite-storage-bundled", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal", "voip-encoded", "voip-mlow", "tracing"]'
           if original.count(old) != 1:
               raise SystemExit("Unexpected upstream Cargo.toml; refusing to change features")
           path.write_text(original.replace(old, new))
@@ -142,7 +142,7 @@ jobs:
             echo 'BUILD_BASE=ubuntu:20.04'
             echo 'MAX_GLIBC=2.31'
             echo 'RUST_TOOLCHAIN=nightly-2026-04-05'
-            echo 'REMOVED=native VoIP relay and Opus codec'
+            echo 'REMOVED=native VoIP relay and native Opus; retained MLOW codec required by HTTP handlers'
             echo 'WARNING=Never replace stable Rust with this artifact without real-device regression and rollback.'
           } > out/provenance.txt
 
