@@ -150,7 +150,7 @@ final class JsonStore {
                 'attempts'=>0,'next_at'=>$now,'created_at'=>$now,'updated_at'=>$now,
                 'response_code'=>null,'error'=>null,'engine_response'=>null
             ];
-            self::trace($s,$id,'queued','local_queue');
+            // created_at already proves queue acceptance; no duplicate journal entry.
             return ['id'=>$id,'state'=>'queued','duplicate'=>false];
         });
     }

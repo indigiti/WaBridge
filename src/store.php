@@ -180,11 +180,9 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         $s = $db->prepare('SELECT body FROM jobs WHERE id=?'); $s->execute([$row['id']]);
         if (!hash_equals((string)$s->fetchColumn(), $body)) throw new InvalidArgumentException('Idempotency key reused with different message');
     }
+    // A job row's persisted created_at is already immutable queue evidence.
+    // Avoid a second synchronous SQLite write for an identical checkpoint.
     $result=['id'=>$row['id'],'state'=>$row['state'],'duplicate'=>$row['id'] !== $id];
-    if(!$result['duplicate']) {
-        $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
-        $trace->execute([wabridge_guid(),$id,'queued','local_queue',time()]);
-    }
     $db->commit();
     return $result;
     } catch (Throwable $e) {
