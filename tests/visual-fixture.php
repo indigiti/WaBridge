@@ -62,6 +62,7 @@ window.addEventListener('load',() => {
   b.dataset.visualHero=String(hero.getBoundingClientRect().height>160);
   b.dataset.visualFont=getComputedStyle(hero).fontFamily.includes('WaBridge Inter')?'inter':'fallback';
   b.dataset.visualOverflow=String(document.documentElement.scrollWidth>viewport+5);
+  b.dataset.visualMetricWidth=String(Math.round(metric.getBoundingClientRect().width));
   b.dataset.visualMetric=String(metric.getBoundingClientRect().width>130);
   b.dataset.visualSidebar=String(side.getBoundingClientRect().width>=75);
 });
