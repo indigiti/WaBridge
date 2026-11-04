@@ -97,7 +97,7 @@ jobs:
 
       - name: Verify upstream-compatible full feature compilation
         working-directory: waxum-src
-        run: "$HOME/.cargo/bin/cargo" check --all-features --lib --bin waxum
+        run: |\n          "$HOME/.cargo/bin/cargo" check --all-features --lib --bin waxum
 
       - name: Build headless Rust gateway without console/Swagger
         working-directory: waxum-src
