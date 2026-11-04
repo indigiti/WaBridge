@@ -18,7 +18,7 @@ Rust Waxum runs QR pairing and WhatsApp messaging. PHP runs an independent persi
 Ask Cloudways support to configure a Cron Job every minute using the application's correct PHP 8.4 CLI interpreter, running the private PHP entrypoint with a small batch limit of five.
 
 Script path:
-  /home/1323555.cloudwaysapps.com/wbdbbkzpe/private_html/wabridge/cli/worker.php
+  /home/1323555.cloudwaysapps.com/wbdbbbkzpe/private_html/wabridge/cli/worker.php
 
 Arguments:
   5
