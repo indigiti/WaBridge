@@ -13,7 +13,7 @@ The experimental workflow:
 1. Runs offline unit tests for the size comparator before Rust compilation.
 2. Verifies baseline archive checksum, source provenance and ABI.
 3. Checks out the precise upstream Waxum revision and applies a manifest replacement that aborts on source drift.
-4. Removes native VoIP relay and native Opus while retaining core SQLite, transport, Tokio, signaling, encoded-call and tracing features.
+4. Removes the native VoIP relay and native Opus while retaining core SQLite, transport, Tokio, signaling, encoded-call, **MLOW encode/decode**, and tracing features. Waxum `src/api/web/calls/handlers.rs` imports `MlowEncoder` and `MlowDecoder`, so `voip-mlow` is mandatory for compilation even when native relay is disabled.
 5. Builds on Ubuntu 20.04 with the pinned nightly toolchain, audits ELF architecture and glibc <= 2.31, checks the CLI help surface and saves linked libraries and Cargo dependency graph.
 6. Measures raw ELF size and deterministic gzip size, records SHA-256 of both executables and keeps a JSON/Markdown report.
 7. Uploads the candidate and evidence **before** enforcing a minimum 5% raw size reduction, plus positive gzip reduction, so failed comparisons remain auditable.
