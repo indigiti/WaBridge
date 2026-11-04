@@ -163,6 +163,33 @@ final class JsonStore {
         });
     }
     /** Return only a queued job ID/session, never the body or recipient. */
+    /**
+     * One oldest queued job per session, to prevent an offline account
+     * from blocking every other connected account in a single-server queue.
+     */
+    public function queuedCandidates(int $limit=12):array {
+        $limit=max(1,min(20,$limit));
+        return $this->read(static function(array $state)use($limit):array {
+            $bySession=[];$now=time();
+            foreach($state['jobs'] as $id=>$job){
+                if(($job['state']??'')!=='queued'||(int)($job['next_at']??0)>$now)continue;
+                $sid=(string)($job['session_id']??'');
+                if(!valid_session_id($sid))continue;
+                $time=(int)($job['created_at']??0);
+                $candidate=['id'=>(string)$id,'session_id'=>$sid,'created_at'=>$time];
+                $prev=$bySession[$sid]??null;
+                if($prev===null||$time<$prev['created_at']||
+                   ($time===$prev['created_at']&&strcmp((string)$id,$prev['id'])<0))
+                    $bySession[$sid]=$candidate;
+            }
+            $rows=array_values($bySession);
+            usort($rows,static fn(array $a,array $b):int=>
+                ($a['created_at']<=>$b['created_at'])?:strcmp($a['id'],$b['id']));
+            return array_slice(array_map(static fn(array $row):array=>[
+                'id'=>$row['id'],'session_id'=>$row['session_id']
+            ],$rows),0,$limit);
+        });
+    }
     public function queuedJob(?string $jobId=null): ?array {
         if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
             throw new InvalidArgumentException('Invalid job ID');
