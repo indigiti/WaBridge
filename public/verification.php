@@ -3,6 +3,8 @@ declare(strict_types=1);
 require __DIR__.'/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/worker-health.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ops/connection-watchdog.php';
 header('Cache-Control: private, no-store, max-age=0');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -12,38 +14,39 @@ header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
 if (!admin_authenticated()) {http_response_code(403);exit('Sign in to WaBridge first.');}
 $storage=false;$gateway=['ready'=>false,'state'=>'unreachable','http'=>null];
-$sessions=[];$messages=[];$error='';
+$counts=[];$error='';$worker=worker_health_read();$watchdog=watchdog_read();
 try{
- $storage=storage_health();
- $gateway=gateway_diagnostics();
- if($gateway['ready'])$sessions=upstream_sessions();
- $messages=storage_admin_messages(100);
+    $storage=storage_health();
+    $gateway=gateway_diagnostics();
+    // Aggregate state in one bounded query. No message bodies or recipient
+    // numbers are fetched merely to render this verification dashboard.
+    $counts=storage_message_status_counts();
 }catch(Throwable $e){
- $error='Some checks were unavailable; consult diagnostics and private server logs.';
- error_log('WaBridge acceptance verification: '.get_class($e));
+    $error='Some checks were unavailable; consult diagnostics and private server logs.';
+    error_log('WaBridge acceptance verification: '.get_class($e));
 }
-$paired=0;$accepted=0;$delivered=0;$incomplete=0;
-foreach($sessions as $session){
- if(!is_array($session))continue;
- $id=(string)($session['id']??$session['session_id']??'');
- if(!permitted_session($id))continue;
- if(in_array(strtolower((string)($session['status']??'')),['connected','online','ready'],true))$paired++;
-}
-foreach($messages as $job){
- if(!is_array($job)||!permitted_session((string)($job['session_id']??'')))continue;
- $state=message_log_effective_status($job);
- if(in_array($state,['accepted','sent','delivered','read'],true))$accepted++;
- if(in_array($state,['delivered','read'],true))$delivered++;
- if(in_array($state,['needs_review','failed'],true))$incomplete++;
-}
+$accepted=(int)($counts['accepted']??0)+(int)($counts['sent']??0)
+    +(int)($counts['delivered']??0)+(int)($counts['read']??0);
+$delivered=(int)($counts['delivered']??0)+(int)($counts['read']??0);
+$incomplete=(int)($counts['needs_review']??0)+(int)($counts['failed']??0);
+$watchdogRecent=($watchdog['state']??'')==='recent';
+$paired=$watchdogRecent?(int)$watchdog['connected']:null;
+$sampled=(int)($watchdog['sampled_sessions']??0);
+$sampleTruncated=(bool)($watchdog['truncated']??false);
 $checks=[
  ['PHP control plane','PASS','A successful authenticated PHP page confirms this runtime is active.'],
  ['Private application storage',$storage?'PASS':'CHECK',$storage?'The configured PHP backend responded.':'Storage health check failed or was unavailable.'],
  ['Rust gateway',(bool)($gateway['ready']??false)?'PASS':'CHECK','Local liveness and storage readiness; not proof of WhatsApp pairing.'],
- ['WhatsApp account paired',$paired>0?'OBSERVED':'MANUAL',$paired.' connected session(s) reported by Waxum; verify the phone is still linked.'],
+ ['WhatsApp account paired',$paired!==null&&$paired>0?'OBSERVED':'MANUAL',
+    $paired===null?'Watchdog snapshot unavailable or stale; check Linked sessions.':
+      $paired.' of '.$sampled.' sampled permitted session(s) connected'.
+      ($sampleTruncated?' (sample limit reached; fleet total unknown).':'.')],
  ['Gateway accepted test message',$accepted>0?'OBSERVED':'MANUAL',$accepted.' accepted or later-state job(s); check message IDs and recipient consent.'],
- ['Provider-confirmed delivery',$delivered>0?'OBSERVED':'MANUAL',$delivered.' correlated delivered/read receipt(s). No receipt means delivery remains unknown.'],
- ['Worker processing & failure review',$incomplete===0?'CHECK':'REVIEW',$incomplete.' failed or uncertain job(s) in recent retained records; a continuously running PHP worker must be verified separately.'],
+ ['Provider-confirmed delivery',$delivered>0?'OBSERVED':'MANUAL',$delivered.' correlated delivered/read receipt(s) across retained message state. No receipt means delivery remains unknown.'],
+ ['Worker processing & failure review',
+    $worker['state']==='recent'&&$incomplete===0?'PASS':($incomplete>0?'REVIEW':'CHECK'),
+    $incomplete.' failed or uncertain retained job(s). Worker heartbeat: '.$worker['state'].
+    '. A heartbeat confirms PHP execution, not WhatsApp delivery.'],
  ['Supervisor restart persistence','MANUAL','Only Cloudways restart and phone-link verification after restart can establish persistence.'],
 ];
 ?>

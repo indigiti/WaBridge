@@ -74,6 +74,11 @@ requireParts($platform,[
 if(str_contains($platform,'platform-hub-subnav'))
     throw new RuntimeException('Crowded duplicate module link strip returned');
 requireParts($read('src/ui-shell.php'),['function ui_asset_version','/build/release.json'],'Versioned assets');
+requireParts($read('public/verification.php'),[
+    'storage_message_status_counts()','worker_health_read()','watchdog_read()'
+],'Verification must use bounded status aggregates and snapshots');
+if(str_contains($read('public/verification.php'),'storage_admin_messages(100)'))
+    throw new RuntimeException('Unbounded verification message hydration reintroduced');
 requireParts($read('tests/visual-module-fixture.php'),['moduleContext','moduleFormFit','moduleOverflow'],'Visual module regression');
 requireParts($read('public/assets/wabridge-design-v6.css'),[
     '.platform-context-link','.platform-form-grid .field>label',
