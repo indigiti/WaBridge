@@ -43,7 +43,7 @@ function message_log_reason_code(array $row): string {
     $value=(string)($row['reason_code']??'');
     if($value==='')$value=(string)($row['error']??'');
     $allowed=[
-        'gateway_accepted','missing_provider_id','unexpected_scheduled_response',
+        'gateway_accepted','gateway_http_error','missing_provider_id','unexpected_scheduled_response',
         'transport_or_worker_failure','worker_interrupted','invalid_session',
         'session_disconnected','session_status_unavailable','session_not_authorized'
     ];
@@ -55,6 +55,7 @@ function message_log_reason_text(string $reason): string {
     if($reason==='')return 'No failure reason recorded';
     return match($reason) {
        'gateway_accepted'=>'Gateway accepted the request; awaiting independently verified delivery',
+       'gateway_http_error'=>'Gateway returned an HTTP error; review the response status before taking action',
        'missing_provider_id'=>'Gateway response lacked a usable message ID; outcome uncertain',
        'unexpected_scheduled_response'=>'Gateway reported a scheduled rather than immediate send',
        'transport_or_worker_failure'=>'Gateway transport or worker failed; message may have been sent',
