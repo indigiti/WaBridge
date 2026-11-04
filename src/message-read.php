@@ -109,15 +109,44 @@ function storage_message_detail(string $id):?array {
     return $page['rows'][0]??null;
 }
 
-/** Per-message event journal: exact indexed job lookup, bounded to 40 rows. */
+/**
+ * Real recorded delivery transitions plus queue-created evidence from
+ * immutable jobs.created_at. New jobs avoid an extra synchronous queued
+ * journal INSERT. Previously recorded queued events are never duplicated.
+ *
+ * Keep the empty result for old jobs with no journal so their trace page
+ * can show the legacy fallback (latest checkpoints).
+ */
 function storage_message_timeline(string $id):array {
     if(!valid_job_id($id))return [];
     $db=store();
     if($db instanceof JsonStore)
-        return $db->read(static fn(array $s):array=>array_slice((array)($s['timeline'][$id]??[]),-40));
-    $stmt=$db->prepare('SELECT guid,state,proof,at FROM message_timeline WHERE job_id=? ORDER BY seq DESC LIMIT 40');
+        return $db->read(static function(array $s)use($id):array {
+            $events=array_slice((array)($s['timeline'][$id]??[]),-39);
+            if(!$events)return [];
+            $job=$s['jobs'][$id]??null;
+            if(is_array($job)&&($events[0]['state']??'')!=='queued')
+                array_unshift($events,[
+                    'guid'=>$id,'state'=>'queued','proof'=>'local_queue',
+                    'at'=>(int)($job['created_at']??0),
+                ]);
+            return $events;
+        });
+    $stmt=$db->prepare('SELECT guid,state,proof,at FROM message_timeline WHERE job_id=? ORDER BY seq DESC LIMIT 39');
     $stmt->execute([$id]);
-    return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+    $events=array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+    if(!$events)return [];
+    if(($events[0]['state']??'')!=='queued'){
+        $q=$db->prepare('SELECT created_at FROM jobs WHERE id=?');
+        $q->execute([$id]);
+        $created=$q->fetchColumn();
+        if($created!==false)
+            array_unshift($events,[
+                'guid'=>$id,'state'=>'queued','proof'=>'local_queue',
+                'at'=>(int)$created,
+            ]);
+    }
+    return $events;
 }
 
 /**

@@ -67,3 +67,7 @@ Integration preview. Automated tests cover JSON storage, legacy SQLite, migratio
 - JSON is strictly single-server testing mode. SQLite journals use indexed lookups; a high-volume multi-tenant product requires a transactional production database, load tests and real-host verification.
 
 Never interpret successful CI, gateway HTTP acceptance or a watchdog 'connected' state as verified WhatsApp delivery.
+
+### Queue write amplification
+
+The queued checkpoint comes from the existing persisted `jobs.created_at` field and uses the job UUID as its reference. Subsequent actual worker/gateway/receipt transitions are journalled with independent UUIDs. This avoids an extra synchronous timeline INSERT per message while keeping old recorded events and old IDs intact. Benchmarks on GitHub CI measure SQLite enqueue only; they are not live WhatsApp throughput.
