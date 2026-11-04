@@ -33,6 +33,7 @@ requireParts($index,[
     'id="overview"','id="sessions"','id="integrations"',
     'wabridge-ui-v6.css','console-hero','console-overview-grid',
     'activity-feed','ui_icon(', 'id="hero-title"',
+    'name="send_nonce"','hash_equals($issued,$nonce)',
     "if (\$view==='messaging')","if (\$view==='devices')",
     "if (\$view==='api-applications')",
     'href="/wabridge/messages'
