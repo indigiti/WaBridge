@@ -9,6 +9,9 @@ on:
       - src/ui-shell.php
       - tests/visual-fixture.php
       - tests/visual-module-fixture.php
+      - tests/visual-login-fixture.php
+      - src/auth-navigation.php
+      - src/bootstrap.php
       - public/platform.php
       - public/.htaccess
       - .github/workflows/design-qa.yml
@@ -28,12 +31,15 @@ jobs:
           php tools/build-assets.php
           php -l tests/visual-fixture.php
           php -l tests/visual-module-fixture.php
+          php -l tests/visual-login-fixture.php
       - name: Prepare CI-only preview with synthetic data
         run: |
           mkdir -p qa-root/wabridge
           cp tests/visual-fixture.php qa-root/wabridge/index.php
           mkdir -p qa-root/wabridge/media
           cp tests/visual-module-fixture.php qa-root/wabridge/media/index.php
+          mkdir -p qa-root/wabridge/sign-in
+          cp tests/visual-login-fixture.php qa-root/wabridge/sign-in/index.php
           ln -s "$GITHUB_WORKSPACE/public/assets" qa-root/wabridge/assets
           php -S 127.0.0.1:8765 -t qa-root > /tmp/wabridge-visual-php.log 2>&1 &
           echo "$!" > /tmp/wabridge-preview.pid
@@ -52,7 +58,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p visual-screenshots
-          for spec in desktop:1440:1000:/wabridge/ mobile:390:844:/wabridge/ media-desktop:1440:1000:/wabridge/media/ media-mobile:390:844:/wabridge/media/; do
+          for spec in desktop:1440:1000:/wabridge/ mobile:390:844:/wabridge/ media-desktop:1440:1000:/wabridge/media/ media-mobile:390:844:/wabridge/media/ auth-desktop:1440:1000:/wabridge/sign-in/ auth-mobile:390:844:/wabridge/sign-in/; do
             IFS=: read -r name width height page_url <<< "$spec"
             "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
               --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
@@ -69,6 +75,13 @@ jobs:
           name=sys.argv[1]
           dom=Path("visual-screenshots/"+name+".html").read_text()
           required=[
+              'data-login-ready="true"',
+              'data-login-card="true"',
+              'data-login-font="inter"',
+              'data-login-form="true"',
+              'data-login-overflow="false"',
+              'data-login-centered="true"',
+          ] if name.startswith("auth-") else [
               'data-module-ready="true"',
               'data-module-nav="true"',
               'data-module-context="true"',
