@@ -56,7 +56,7 @@ requireParts($read('tools/build-assets.php'),[
     'wabridge-design-v6.css','wabridge-ui-v6.css',
     'one authored source'
 ],'Unified build');
-requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href)'],'Accessible navigation');
+requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href,'],'Accessible navigation');
 requireParts($msg,[
     'admin_authenticated()','assert_csrf()','process_next_message',
     'storage_admin_messages','message_log_effective_status','escape(',
