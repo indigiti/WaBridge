@@ -30,6 +30,26 @@ function storage_queue_stats(): array {
     return $db->query('SELECT state,COUNT(*) AS n FROM jobs GROUP BY state')->fetchAll();
 }
 /**
+ * Return the oldest eligible queued job's ID and session only.
+ * Checking session connectivity before claiming keeps disconnected jobs
+ * queued (zero gateway calls) instead of incorrectly marking them sent.
+ */
+function storage_queued_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
+    if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+        throw new InvalidArgumentException('Invalid job ID');
+    if($db instanceof JsonStore)return $db->queuedJob($jobId);
+    if($jobId!==null){
+        $q=$db->prepare("SELECT id,session_id FROM jobs WHERE id=? AND state='queued' AND next_at<=? LIMIT 1");
+        $q->execute([$jobId,time()]);
+    } else {
+        $q=$db->prepare("SELECT id,session_id FROM jobs WHERE state='queued' AND next_at<=? ORDER BY created_at,id LIMIT 1");
+        $q->execute([time()]);
+    }
+    $row=$q->fetch(PDO::FETCH_ASSOC);
+    return $row?['id'=>(string)$row['id'],'session_id'=>(string)$row['session_id']]:null;
+}
+
+/**
  * Read-only admin activity log across PHP JSON and legacy SQLite.
  * Full recipient values are used only server-side to form a masked label.
  * Neither message bodies nor raw gateway responses enter this projection.
@@ -39,6 +59,7 @@ function storage_admin_messages(int $limit=50): array {
     $db=store();
     if ($db instanceof JsonStore) return $db->adminMessages($limit);
     $q=$db->prepare('SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.updated_at,j.attempts,j.response_code,j.error,
+        j.engine_response AS reason_code,
         r.provider_id,r.state AS receipt_state,r.observed_at AS receipt_observed_at
         FROM jobs j LEFT JOIN message_receipts r ON r.job_id=j.id
         ORDER BY j.created_at DESC, j.id DESC LIMIT ?');
@@ -62,6 +83,7 @@ function storage_admin_messages(int $limit=50): array {
             'attempts'=>(int)$job['attempts'],
             'response_code'=>$job['response_code']===null?null:(int)$job['response_code'],
             'error'=>(string)($job['error']??''),
+            'reason_code'=>(string)($job['reason_code']??''),
             'receipt'=>$receipt,
         ];
     }
