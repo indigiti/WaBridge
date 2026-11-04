@@ -40,6 +40,22 @@ $job=$db->read(static fn(array $state):array=>$state['jobs'][$s['job_id']]);
 check($job['next_at']===$when,'future queue notBefore persisted');
 check((int)(storage_message_detail($s['job_id'])['next_at']??0)===$when,
     'Scheduled due date must appear in bounded message read model');
+$beforeFailedSchedule=$db->read(static fn(array $state):array=>$state['jobs']);
+try{
+    platform_schedule($c['id'],$t['id'],'unit-session',time()+650,
+        static function(array $record):void{
+            throw new RuntimeException('Simulated metadata capacity failure');
+        });
+    throw new RuntimeException('Should reject unpersisted schedule');
+}catch(RuntimeException $expected){
+    check(str_contains($expected->getMessage(),'metadata could not be saved'),
+        'Scheduling should report metadata persistence failure');
+}
+$afterFailedSchedule=$db->read(static fn(array $state):array=>$state['jobs']);
+check(count($afterFailedSchedule)===count($beforeFailedSchedule)+1,'Failed schedule still yields audit-visible job');
+$newIds=array_diff(array_keys($afterFailedSchedule),array_keys($beforeFailedSchedule));
+$orphan=$afterFailedSchedule[array_values($newIds)[0]];
+check($orphan['state']==='cancelled','Metadata failure must atomically cancel its queued job');
 $cancelJob=platform_schedule($c['id'],$t['id'],'unit-session',time()+720);
 check(platform_schedule_cancel($cancelJob['id']),'cancel a queued job');
 $cancelled=$db->read(static fn(array $state):array=>$state['jobs'][$cancelJob['job_id']]);
@@ -99,6 +115,12 @@ check($cloudMessage['accepted']&&$cloudMessage['delivery']==='unconfirmed','appr
 $raw=(string)file_get_contents($folder.'/state.json');
 check(!str_contains($raw,$secret),'provider credentials never persisted');
 check(count(platform_page('contacts',1,10)['rows'])===1,'bounded pilot query');
+check(count(platform_page('contacts',1,10,'Sample')['rows'])===1,'Search contact name');
+check(count(platform_page('contacts',1,10,'7890')['rows'])===0,'Search filters unknown last-four');
+check(count(platform_page('contacts',1,10,'3210')['rows'])===1,'Search by last four digits');
+try{platform_page('contacts',1,10,'919876543210');
+    throw new RuntimeException('Full phone leaked in contact search URL');
+}catch(InvalidArgumentException $expected){};
 require $root.'/src/platform/webhook-read.php';
 $raw='{"event":"receipt","test":true}';
 storage_event_accept('provider-event-test-00001','unit-session','receipt',$raw,

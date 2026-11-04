@@ -27,6 +27,9 @@ $pages=[
 $module=(string)($_GET['module']??'contacts');
 if(!isset($pages[$module])){http_response_code(404);exit('Module unavailable');}
 $page=max(1,min(1000,(int)($_GET['page']??1)));
+$search=$module==='contacts'?trim((string)($_GET['q']??'')):'';
+$selectedContactId=(string)($_GET['contact']??'');
+$selectedTemplateId=(string)($_GET['template']??'');
 $notice='';$error='';$preview=[];$mediaOutcome=null;$aiDraft='';
 try{
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
@@ -149,15 +152,52 @@ $collection=match($module){
     default=>null,
 };
 $listing=['rows'=>[],'page'=>$page,'has_next'=>false];
+$allowedSessions=array_values(array_filter((array)(config()['allowed_sessions']??[]),static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
+$allowedSessions=array_slice($allowedSessions,0,100);
 $contacts=[];$templates=[];
 try{
-    if($collection!==null)$listing=platform_page($collection,$page,10);
+    if($collection!==null)$listing=platform_page($collection,$page,10,$search);
     if(in_array($module,['schedules','media','cloud-api'],true)){
         $contacts=platform_page('contacts',1,25)['rows'];
         $contacts=array_values(array_filter($contacts,static fn(array $r):bool=>($r['consented']??false)===true));
+        // A contact selected from any page of Contacts must remain selectable,
+        // even if outside the most-recent-25 picker. Never hydrate all 500.
+        if(valid_job_id($selectedContactId)){
+            $chosen=platform_find('contacts',$selectedContactId);
+            if($chosen && ($chosen['consented']??false)===true &&
+               !in_array($selectedContactId,array_column($contacts,'id'),true))
+                array_unshift($contacts,$chosen);
+        }
     }
-    if($module==='schedules')$templates=platform_page('templates',1,25)['rows'];
-}catch(Throwable $e){$error='Cannot load module records. Review private storage.';}
+    if($module==='schedules'){
+        $templates=platform_page('templates',1,25)['rows'];
+        if(valid_job_id($selectedTemplateId)){
+            $chosen=platform_find('templates',$selectedTemplateId);
+            if($chosen && !in_array($selectedTemplateId,array_column($templates,'id'),true))
+                array_unshift($templates,$chosen);
+        }
+    }
+}catch(InvalidArgumentException $e){$error=$e->getMessage();}
+catch(Throwable $e){$error='Cannot load module records. Review private storage.';}
+/**
+ * Use locally configured session scope: no Rust status requests on page load.
+ * When unrestricted, retain the existing session-ID input and guide users to
+ * Linked sessions rather than inventing device availability.
+ */
+function platform_session_field(array $allowed,string $title='WhatsApp session'):void { ?>
+<div class="field">
+  <label><?= escape($title) ?>
+  <?php if($allowed): ?>
+  <select name="session_id" required><option value="">Select authorized session</option>
+  <?php foreach($allowed as $sid): ?><option value="<?= escape($sid) ?>"><?= escape($sid) ?></option><?php endforeach;?>
+  </select>
+  <?php else: ?>
+  <input name="session_id" maxlength="64" pattern="[a-zA-Z0-9_-]{1,64}" placeholder="Session ID" required>
+  <?php endif; ?>
+  </label>
+  <small class="platform-help">Use a connected account from <a href="/wabridge/sessions">Linked sessions</a>; status is checked before sending.</small>
+</div>
+<?php }
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title><?= escape($pages[$module][0]) ?> · WaBridge</title>
@@ -167,9 +207,32 @@ try{
 <?php ui_breadcrumb('WaBridge platform',$pages[$module][0]); ?>
 <div class="workspace-top"><div><div class="eyebrow">PRODUCT PLATFORM / <?= escape(strtoupper($module)) ?></div><h1><?= escape($pages[$module][0]) ?></h1><p class="lead"><?= escape($pages[$module][1]) ?></p></div>
 <a class="button button-ghost" href="/wabridge/<?= escape($module) ?>">Refresh</a></div>
-<nav class="platform-hub-subnav" aria-label="Product modules">
-<?php foreach($pages as $slug=>$entry):?><a href="/wabridge/<?= escape($slug) ?>" <?= $slug===$module?'aria-current="page"':'' ?>><?= escape($entry[0]) ?></a><?php endforeach;?>
-</nav>
+<div class="platform-context" aria-label="Related actions">
+  <span class="platform-context-label"><?= escape(match($module) {
+    'contacts','templates','schedules','media'=>'Messaging tools',
+    'automation'=>'Automation workspace',
+    'developer-tools'=>'Developer workspace',
+    'security-center'=>'Operations center',
+    'workspaces','cloud-api'=>'Administration',
+    default=>'WaBridge',
+  }) ?></span>
+  <div class="platform-context-links">
+  <?php foreach(match($module) {
+    'contacts'=>[['templates','Templates'],['schedules','Schedules']],
+    'templates'=>[['contacts','Contacts'],['schedules','Schedule message']],
+    'schedules'=>[['contacts','Contacts'],['templates','Templates']],
+    'media'=>[['contacts','Manage contacts'],['messages','Delivery activity']],
+    'automation'=>[['messages','Message activity']],
+    'developer-tools'=>[['webhook-events','Webhook history']],
+    'security-center'=>[['diagnostics','Diagnostics'],['audit','Audit log']],
+    'workspaces'=>[['security-center','Security']],
+    'cloud-api'=>[['security-center','Security'],['contacts','Contacts']],
+    default=>[],
+  } as [$target,$label]): ?>
+    <a class="platform-context-link" href="/wabridge/<?= escape($target) ?>"><?= escape($label) ?></a>
+  <?php endforeach;?>
+  </div>
+</div>
 <?php if($notice!==''):?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif;?>
 <?php if($error!==''):?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif;?>
 <div class="platform-panels">
@@ -194,23 +257,27 @@ try{
 </form></section>
 <?php elseif($module==='schedules'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P1 / SCHEDULED QUEUE</div><h2>Schedule one consented text</h2></div></div>
+<?php if(!$contacts):?><p class="notice notice-warning">No opted-in contact is selected. <a href="/wabridge/contacts">Search or add a consented contact</a> before scheduling.</p><?php endif;?>
+<?php if(!$templates):?><p class="notice notice-warning">No recent templates available. <a href="/wabridge/templates">Create or choose a template</a> first.</p><?php endif;?>
 <form method="post" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="schedule_create">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_schedule_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
-<div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?></option><?php endforeach;?></select></label></div>
-<div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>
+<div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedContactId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label>
+<small class="platform-help">Showing recent contacts. <a href="/wabridge/contacts">Search all contacts</a> to select an older record.</small></div>
+<div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedTemplateId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?></option><?php endforeach;?></select></label><small class="platform-help">Showing recent templates. <a href="/wabridge/templates">Choose an older template</a> from its record.</small></div>
+<?php platform_session_field($allowedSessions,'Connected session'); ?>
 <div class="field"><label>Send time — UTC<input type="datetime-local" name="send_at" required></label></div>
 <div class="field full platform-help">1 minute to 30 days in advance. Requires the separate PHP CLI worker. Consent is checked again at dispatch.</div>
 <div class="platform-button-row"><button class="button button-primary" type="submit" <?= !$contacts||!$templates?'disabled':'' ?>>Create scheduled job</button></div>
 </form></section>
 <?php elseif($module==='media'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P1 / MEDIA</div><h2>Send one media message</h2></div></div>
+<?php if(!$contacts):?><p class="notice notice-warning">No opted-in contact is selected. <a href="/wabridge/contacts">Search or add a consented contact</a>; this form cannot send without consent.</p><?php endif;?>
 <form method="post" enctype="multipart/form-data" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="media_send">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_media_nonce']??=bin2hex(random_bytes(24))) ?>">
 <div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
-<div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Connected session'); ?>
 <div class="field"><label>Media type<select name="media_type"><option value="image">Image</option><option value="document">Document</option><option value="audio">Audio</option><option value="video">Video</option></select></label></div>
 <div class="field"><label>Upload file (max 1 MiB)<input type="file" name="media_file" required></label></div>
 <div class="field full"><label>Caption (not available for audio)<input name="caption" maxlength="300"></label></div>
@@ -220,7 +287,7 @@ try{
 <?php elseif($module==='automation'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P3 / RULE BUILDER</div><h2>Keyword workflow — review only</h2></div></div>
 <form method="post" class="platform-form-grid"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="rule_create">
-<div class="field"><label>Session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions); ?>
 <div class="field"><label>Incoming keyword<input name="keyword" maxlength="80" required></label></div>
 <div class="field full"><label>Suggested reply<textarea name="suggestion" maxlength="800" rows="3" required></textarea></label></div>
 <div class="platform-button-row"><button class="button button-primary">Save review-only rule</button></div>
@@ -277,7 +344,7 @@ try{
 <p class="platform-help">A secure operator submits credentials directly to the private Rust engine. WaBridge PHP does not write the tokens into its metadata store. Enable <code>enable_official_cloud_connect</code> only after reviewing Meta setup and runtime protection.</p>
 <form method="post" class="platform-form-grid" autocomplete="off"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="cloud_connect">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_cloud_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Existing session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Existing Cloud session'); ?>
 <div class="field"><label>WABA ID<input name="waba_id" pattern="[0-9]{8,25}" required></label></div>
 <div class="field"><label>Phone number ID<input name="phone_number_id" pattern="[0-9]{8,25}" required></label></div>
 <div class="field"><label>Access token<input type="password" name="access_token" required></label></div>
@@ -288,7 +355,7 @@ try{
 <h2>Send an approved Meta template</h2>
 <form method="post" class="platform-form-grid"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="cloud_template">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_cloud_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Official session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Official Cloud session'); ?>
 <div class="field"><label>Opted-in recipient<select name="contact_id" required><option value="">Choose</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
 <div class="field"><label>Approved template name<input name="template_name" pattern="[a-z0-9_]{1,90}" required></label></div>
 <div class="field"><label>Language code<input name="language_code" value="en_US" maxlength="5" required></label></div>
@@ -298,6 +365,14 @@ try{
 <?php endif;?>
 <?php if($collection!==null):?>
 <section class="glass-panel workspace-section"><div class="panel-heading platform-list-header"><div><div class="eyebrow">BOUNDed RECORDS</div><h2><?= escape($pages[$module][0]) ?> history</h2></div><span class="subtle-tag">Page <?= $page ?> · 10 records</span></div>
+<?php if($module==='contacts'):?>
+<form method="get" action="/wabridge/contacts" class="platform-search" role="search">
+<label for="platform-contact-search">Search by name or last 4 digits</label>
+<input id="platform-contact-search" name="q" value="<?= escape($search) ?>" maxlength="50" placeholder="Contact name or 7890">
+<button type="submit" class="button button-ghost button-small">Search</button>
+<?php if($search!==''):?><a class="button button-ghost button-small" href="/wabridge/contacts">Clear</a><?php endif;?>
+</form>
+<?php endif;?>
 <div class="table-scroll"><table class="platform-table"><thead><tr><th>Reference</th><th>Details</th><th>Created (UTC)</th><th>State / action</th></tr></thead><tbody>
 <?php foreach($listing['rows'] as $row):?>
 <tr><td><code><?= escape((string)$row['id']) ?></code></td>
@@ -310,7 +385,12 @@ try{
 <td><?= escape(gmdate('Y-m-d H:i',(int)$row['created_at'])) ?></td>
 <td><?php if($module==='contacts'):?>
 <?= !empty($row['consented'])?'Consented':'Opted out' ?>
-<?php if(!empty($row['consented'])):?><form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="contact_revoke"><input type="hidden" name="contact_id" value="<?= escape($row['id']) ?>"><button type="submit" class="button button-ghost button-small">Withdraw consent</button></form><?php endif;?>
+<?php if(!empty($row['consented'])):?>
+<div class="platform-row-actions"><a href="/wabridge/media?contact=<?= rawurlencode((string)$row['id']) ?>">Send media</a>
+<a href="/wabridge/schedules?contact=<?= rawurlencode((string)$row['id']) ?>">Schedule</a></div>
+<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="contact_revoke"><input type="hidden" name="contact_id" value="<?= escape($row['id']) ?>"><button type="submit" class="button button-ghost button-small">Withdraw consent</button></form><?php endif;?>
+<?php elseif($module==='templates'):?>
+<a href="/wabridge/schedules?template=<?= rawurlencode((string)$row['id']) ?>" class="table-link">Schedule with template</a>
 <?php elseif($module==='schedules'):?>
 <?php if(($row['status']??'')==='cancelled'):?>Cancelled
 <?php else:?>
@@ -326,8 +406,8 @@ try{
 <?php endforeach;?>
 <?php if(!$listing['rows']):?><tr><td colspan="4" class="empty-cell">No records available.</td></tr><?php endif;?></tbody></table></div>
 <div class="platform-button-row">
-<?php if($page>1):?><a class="button button-ghost" href="/wabridge/<?= escape($module) ?>?page=<?= $page-1 ?>">Previous</a><?php endif;?>
-<?php if($listing['has_next']):?><a class="button button-primary" href="/wabridge/<?= escape($module) ?>?page=<?= $page+1 ?>">Next</a><?php endif;?>
+<?php if($page>1):?><a class="button button-ghost" href="/wabridge/<?= escape($module) ?>?<?= escape(http_build_query(['page'=>$page-1]+($search!==''?['q'=>$search]:[]),'','&',PHP_QUERY_RFC3986)) ?>">Previous</a><?php endif;?>
+<?php if($listing['has_next']):?><a class="button button-primary" href="/wabridge/<?= escape($module) ?>?<?= escape(http_build_query(['page'=>$page+1]+($search!==''?['q'=>$search]:[]),'','&',PHP_QUERY_RFC3986)) ?>">Next</a><?php endif;?>
 </div></section>
 <?php endif;?>
 </div></main><?php ui_shell_end(); ?></body></html>

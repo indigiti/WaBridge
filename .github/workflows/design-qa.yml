@@ -1,5 +1,6 @@
 name: Premium UI visual QA
 on:
+  pull_request:
   push:
     branches: [main]
     paths:
@@ -7,6 +8,9 @@ on:
       - public/index.php
       - src/ui-shell.php
       - tests/visual-fixture.php
+      - tests/visual-module-fixture.php
+      - public/platform.php
+      - public/.htaccess
       - .github/workflows/design-qa.yml
       - tools/build-assets.php
   workflow_dispatch:
@@ -23,10 +27,13 @@ jobs:
           bash tools/fetch-fonts.sh
           php tools/build-assets.php
           php -l tests/visual-fixture.php
+          php -l tests/visual-module-fixture.php
       - name: Prepare CI-only preview with synthetic data
         run: |
           mkdir -p qa-root/wabridge
           cp tests/visual-fixture.php qa-root/wabridge/index.php
+          mkdir -p qa-root/wabridge/media
+          cp tests/visual-module-fixture.php qa-root/wabridge/media/index.php
           ln -s "$GITHUB_WORKSPACE/public/assets" qa-root/wabridge/assets
           php -S 127.0.0.1:8765 -t qa-root > /tmp/wabridge-visual-php.log 2>&1 &
           echo "$!" > /tmp/wabridge-preview.pid
@@ -45,23 +52,31 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p visual-screenshots
-          for spec in desktop:1440:1000 mobile:390:844; do
-            IFS=: read -r name width height <<< "$spec"
+          for spec in desktop:1440:1000:/wabridge/ mobile:390:844:/wabridge/ media-desktop:1440:1000:/wabridge/media/ media-mobile:390:844:/wabridge/media/; do
+            IFS=: read -r name width height page_url <<< "$spec"
             "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
               --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
               --window-size="$width,$height" --virtual-time-budget=1200 \
               --screenshot="$GITHUB_WORKSPACE/visual-screenshots/$name.png" \
-              http://127.0.0.1:8765/wabridge/ >/dev/null 2>/tmp/chrome-$name.err
+              http://127.0.0.1:8765"$page_url" >/dev/null 2>/tmp/chrome-$name.err
             "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
               --disable-gpu --force-device-scale-factor=1 --window-size="$width,$height" \
               --virtual-time-budget=1200 --dump-dom \
-              http://127.0.0.1:8765/wabridge/ > "visual-screenshots/$name.html" 2>/tmp/chrome-dom-$name.err
+              http://127.0.0.1:8765"$page_url" > "visual-screenshots/$name.html" 2>/tmp/chrome-dom-$name.err
             python3 - "$name" <<'PY'
           import sys
           from pathlib import Path
           name=sys.argv[1]
           dom=Path("visual-screenshots/"+name+".html").read_text()
           required=[
+              'data-module-ready="true"',
+              'data-module-nav="true"',
+              'data-module-context="true"',
+              'data-module-grid="true"',
+              'data-module-form-fit="true"',
+              'data-module-overflow="false"',
+              'data-module-font="inter"',
+          ] if name.startswith("media-") else [
               'data-visual-ready="true"',
               'data-visual-glass="true"',
               'data-visual-hero="true"',
@@ -76,7 +91,7 @@ jobs:
               raise SystemExit(1)
           if Path("visual-screenshots/"+name+".png").stat().st_size<10000:
               raise SystemExit(name+": screenshot too small")
-          print(name+": computed backdrop blur, typography, hero, metrics, no overflow: PASS")
+          print(name+": premium shell, module typography/spacing and no horizontal overflow: PASS")
           PY
           done
       - uses: actions/upload-artifact@v4

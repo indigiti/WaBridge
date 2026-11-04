@@ -58,12 +58,22 @@ function platform_state_io(bool $write,callable $fn):mixed {
     }finally{fclose($fh);}
 }
 /** Only a bounded page of safe projected fields reaches each view. */
-function platform_page(string $collection,int $page=1,int $limit=10):array {
+function platform_page(string $collection,int $page=1,int $limit=10,string $search=''):array {
     if(!in_array($collection,['contacts','templates','rules','workspaces','media_attempts','outbox'],true))
         throw new InvalidArgumentException('Invalid collection');
     $page=max(1,min(1000,$page));$limit=max(1,min(25,$limit));
-    return platform_state_io(false,static function(array $s)use($collection,$page,$limit):array {
+    $search=trim($search);
+    if($search!==''&&($collection!=='contacts'||mb_strlen($search)>50||
+       preg_match('/[\\x00-\\x1f]/',$search)||
+       (ctype_digit($search)&&strlen($search)>4)))
+        throw new InvalidArgumentException('Search by contact name or last four digits only');
+    return platform_state_io(false,static function(array $s)use($collection,$page,$limit,$search):array {
         $rows=array_values($s[$collection]);
+        if($search!=='') {
+            $rows=array_values(array_filter($rows,static fn(array $row):bool=>
+                mb_stripos((string)($row['name']??''),$search)!==false ||
+                (ctype_digit($search)&&str_ends_with((string)($row['phone']??''),$search))));
+        }
         usort($rows,static fn(array $a,array $b):int=>
             ((int)($b['updated_at']??$b['created_at']??0)<=>(int)($a['updated_at']??$a['created_at']??0))
              ?: strcmp((string)($b['id']??''),(string)($a['id']??'')));

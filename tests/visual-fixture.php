@@ -12,8 +12,8 @@ require dirname((string)$_SERVER['DOCUMENT_ROOT']).'/src/ui-shell.php';
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WaBridge · Visual QA fixture</title>
-<link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
-<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
+<link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=<?= escape(ui_asset_version()) ?>">
+<script src="/wabridge/assets/wabridge-console-v3.js?v=<?= escape(ui_asset_version()) ?>" defer></script>
 </head><body class="dashboard-page page-view-overview">
 <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>
 <?php ui_shell_start('overview',true); ?>

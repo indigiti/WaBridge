@@ -32,6 +32,8 @@ jobs:
         run: php tests/json-store.php
       - name: Message activity, verified receipts and browser worker checks
         run: php tests/message-log.php
+      - name: Verify fail-fast Rust diagnostics and safe send timeouts
+        run: php tests/gateway-timeouts.php
       - name: Validate worker heartbeats, queue observability, and no secret leakage
         run: php tests/worker-health.php
       - name: Confirm safe connection watchdog and retry decisions

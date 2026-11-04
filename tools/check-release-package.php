@@ -55,6 +55,8 @@ foreach(['@font-face','.console-hero','.console-overview-grid','.activity-feed',
 }
 if(!str_contains($bundle,'.platform-form-grid'))
     throw new RuntimeException('Product module styles absent from unified premium bundle');
+if(!str_contains($bundle,'.platform-context-link'))
+    throw new RuntimeException('Compact product navigation styles absent');
 if(strlen($bundle)<15000)
     throw new RuntimeException('Incomplete unified premium design stylesheet');
 foreach(['wabridge-premium-v2.css','wabridge-console-v3.css','wabridge-glass-v4.css',

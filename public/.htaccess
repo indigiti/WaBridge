@@ -53,6 +53,13 @@ RewriteCond %{THE_REQUEST} \s/+wabridge/qr\.php(?:[?\s]) [NC]
 RewriteRule ^qr\.php$ /wabridge/qr [R=302,L,NE]
 </IfModule>
 
+# Always revalidate the canonical CSS and JS. A unique release SHA query key
+# permits fast browser caching without an old stylesheet surviving a deployment.
+<FilesMatch "^wabridge-(?:ui-v6\\.css|console-v3\\.js)$">
+  <IfModule mod_headers.c>
+  Header set Cache-Control "public, no-cache, must-revalidate"
+  </IfModule>
+</FilesMatch>
 <IfModule mod_headers.c>
 Header always set X-Content-Type-Options "nosniff"
 Header always set Referrer-Policy "no-referrer"
