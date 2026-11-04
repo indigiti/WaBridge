@@ -34,7 +34,9 @@ function platform_state_io(bool $write,callable $fn):mixed {
                 $data=json_decode($raw,true,20,JSON_THROW_ON_ERROR);
                 if(!is_array($data)||($data['schema']??0)!==1)throw new RuntimeException('Metadata schema unsupported');
                 foreach($s as $key=>$unused){
-                    if(!isset($data[$key])||!is_array($data[$key]))throw new RuntimeException('Invalid metadata collection');
+                    if($key==='schema')continue;
+                    if(!array_key_exists($key,$data)||!is_array($data[$key]))
+                        throw new RuntimeException('Invalid metadata collection');
                 }
                 $s=$data;
             }
