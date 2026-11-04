@@ -232,7 +232,7 @@ try{
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P2 / DEVELOPER</div><h2>API playground</h2></div></div>
 <p class="platform-help">Use the scoped token from API Applications. Never place a real token in a URL, screenshot, report or test message.</p>
 <pre class="table-scroll"><code><?= escape("curl -X POST https://stage.digiti.in/wabridge/api/v1/messages.php \\\n -H 'Authorization: Bearer YOUR_SCOPED_TOKEN' \\\n -H 'Idempotency-Key: YOUR_UNIQUE_OPERATION_KEY' \\\n -H 'Content-Type: application/json' \\\n -d '{\"session_id\":\"YOUR_SESSION\",\"to\":\"919876543210\",\"text\":\"Hello\"}'") ?></code></pre>
-<p><a href="/wabridge/api/v1/capabilities.php">Versioned capabilities</a> · <a href="/wabridge/api-applications">API applications</a></p>
+<p><a href="/wabridge/api/v1/capabilities.php">Versioned capabilities</a> · <a href="/wabridge/api-applications">API applications</a> · <a href="/wabridge/webhook-events">Webhook history</a></p>
 </section>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">WEBHOOKS / DEAD-LETTER</div><h2>Replay a failed outbound event</h2></div></div>
 <form method="post" class="platform-form-grid"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="webhook_replay">
