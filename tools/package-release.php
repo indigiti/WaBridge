@@ -12,6 +12,14 @@ function copyDirectory(string $from,string $to): void {
         if ($entry->isDot()) continue;
         $name=$entry->getFilename();
         if (in_array($name,['.git','.env','config.php','runtime','release'],true)) continue;
+        // A v6 release ships ONE reviewed CSS bundle; old generations are source
+        // history only and must not be published into the browser's asset tree.
+        if (str_ends_with(str_replace('\\','/',$from),'/public/assets') &&
+            in_array($name,[
+                'wabridge-premium-v2.css','wabridge-console-v3.css',
+                'wabridge-glass-v4.css','wabridge-typography-v5.css',
+                'wabridge-design-v6.css','wabridge-ui-v5.css'
+            ],true)) continue;
         // Preserve vendored browser-only QR renderer in public assets. Never
         // package server-side Composer/vendor dependencies or credentials.
         if ($name==='vendor' && !str_ends_with(str_replace('\\','/',$from),'/public/assets')) continue;
