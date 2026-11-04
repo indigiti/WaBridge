@@ -14,7 +14,6 @@ $js=$read('public/assets/wabridge-console-v3.js');
 $routes=$read('public/.htaccess');
 $msg=$read('public/messages.php');
 $platform=$read('public/platform.php');
-$platform=$read('public/platform.php');
 function requireParts(string $data,array $parts,string $area):void {
     foreach($parts as $part)
         if(!str_contains($data,$part))throw new RuntimeException($area.' missing '.$part);
@@ -74,6 +73,7 @@ requireParts($platform,[
 if(str_contains($platform,'platform-hub-subnav'))
     throw new RuntimeException('Crowded duplicate module link strip returned');
 requireParts($read('src/ui-shell.php'),['function ui_asset_version','/build/release.json'],'Versioned assets');
+requireParts($read('tests/visual-module-fixture.php'),['moduleContext','moduleFormFit','moduleOverflow'],'Visual module regression');
 requireParts($read('public/assets/wabridge-design-v6.css'),[
     '.platform-context-link','.platform-form-grid .field>label',
     'grid-template-columns:repeat(2,minmax(0,1fr))'
