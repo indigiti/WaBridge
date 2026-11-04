@@ -57,8 +57,10 @@ assert_eq($json->clientByHash($tokenHash)['id'],'legacy-client','API key migrate
 assert_eq($json->job($job['id'],'legacy-client')['state'],'accepted','Job migrated');
 assert_eq($json->receipt($job['id'])['provider_id'],'provider-legacy-id','Receipt migrated');
 $migratedTimeline=$json->read(static fn(array $s):array=>$s['timeline'][$job['id']]??[]);
-assert_eq(array_column($migratedTimeline,'state'),['queued','processing','accepted'],
-    'GUID message history preserved during migration');
+assert_eq(array_column($migratedTimeline,'state'),['processing','accepted'],
+    'Actual GUID transition journal preserved during migration without redundant queued insert');
+$migratedCreatedAt=$json->read(static fn(array $s):int=>(int)($s['jobs'][$job['id']]['created_at']??0));
+if($migratedCreatedAt<=0)throw new RuntimeException('Authoritative queue-creation evidence lost during migration');
 $migratedAudit=$json->read(static fn(array $s):array=>$s['audit']);
 if(!valid_job_id((string)($migratedAudit[0]['guid']??'')))
     throw new RuntimeException('Administrator event GUID lost during migration');
