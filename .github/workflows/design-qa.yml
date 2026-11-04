@@ -1,0 +1,88 @@
+name: Premium UI visual QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - public/assets/wabridge-design-v6.css
+      - public/index.php
+      - src/ui-shell.php
+      - tests/visual-fixture.php
+      - .github/workflows/design-qa.yml
+      - tools/build-assets.php
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build single stylesheet and local fonts
+        run: |
+          bash tools/fetch-fonts.sh
+          php tools/build-assets.php
+          php -l tests/visual-fixture.php
+      - name: Prepare CI-only preview with synthetic data
+        run: |
+          mkdir -p qa-root/wabridge
+          cp tests/visual-fixture.php qa-root/wabridge/index.php
+          ln -s "$GITHUB_WORKSPACE/public/assets" qa-root/wabridge/assets
+          php -S 127.0.0.1:8765 -t qa-root > /tmp/wabridge-visual-php.log 2>&1 &
+          echo "$!" > /tmp/wabridge-preview.pid
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent http://127.0.0.1:8765/wabridge/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent --show-error http://127.0.0.1:8765/wabridge/ > /dev/null
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render desktop and mobile, inspect computed design state
+        env:
+          CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p visual-screenshots
+          for spec in desktop:1440:1000 mobile:390:844; do
+            IFS=: read -r name width height <<< "$spec"
+            "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
+              --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
+              --window-size="$width,$height" --virtual-time-budget=1200 \
+              --screenshot="$GITHUB_WORKSPACE/visual-screenshots/$name.png" \
+              http://127.0.0.1:8765/wabridge/ >/dev/null 2>/tmp/chrome-$name.err
+            "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage \
+              --disable-gpu --force-device-scale-factor=1 --window-size="$width,$height" \
+              --virtual-time-budget=1200 --dump-dom \
+              http://127.0.0.1:8765/wabridge/ > "visual-screenshots/$name.html" 2>/tmp/chrome-dom-$name.err
+            python3 - "$name" <<'PY'
+          import sys
+          from pathlib import Path
+          name=sys.argv[1]
+          dom=Path("visual-screenshots/"+name+".html").read_text()
+          required=[
+              'data-visual-ready="true"',
+              'data-visual-glass="true"',
+              'data-visual-hero="true"',
+              'data-visual-font="inter"',
+              'data-visual-overflow="false"',
+              'data-visual-metric="true"',
+              'data-visual-sidebar="true"',
+          ]
+          failed=[x for x in required if x not in dom]
+          if failed:
+              print(name+": FAIL "+repr(failed))
+              raise SystemExit(1)
+          if Path("visual-screenshots/"+name+".png").stat().st_size<10000:
+              raise SystemExit(name+": screenshot too small")
+          print(name+": computed backdrop blur, typography, hero, metrics, no overflow: PASS")
+          PY
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wabridge-visual-qa-desktop-mobile
+          path: visual-screenshots/*.png
+          retention-days: 14
+          if-no-files-found: warn
