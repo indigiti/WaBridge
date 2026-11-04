@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/waxum-core-v1.yml'
       - 'tools/waxum-core-v1.py'
+      - 'tools/smoke-waxum-core-v1.py'
       - 'tools/compare-waxum-binaries.py'
       - 'tests/test_waxum_core_v1.py'
       - 'tests/test_waxum_lite_metrics.py'
@@ -27,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s tests -p 'test_waxum*.py' -v
-      - run: python3 -m py_compile tools/waxum-core-v1.py tools/compare-waxum-binaries.py
+      - run: python3 -m py_compile tools/waxum-core-v1.py tools/compare-waxum-binaries.py tools/smoke-waxum-core-v1.py
 
   headless-build:
     name: Pinned Waxum full-feature check and headless benchmark
@@ -87,6 +88,8 @@ jobs:
           python3 wabridge/tools/waxum-core-v1.py --source waxum-src
           git -C waxum-src diff -- Cargo.toml src/main.rs src/lib.rs src/state.rs src/api/mod.rs src/middleware/jwt.rs src/console/handlers.rs src/api/web/ > out/source-patch.diff
           test -s out/source-patch.diff
+          ! grep -q 'data.clone(),' waxum-src/src/api/shared/messages/handlers/media.rs
+          test "$(grep -c 'let media_len = data.len();' waxum-src/src/api/shared/messages/handlers/media.rs)" = '5'
           grep -q 'pub mod event_summary;' waxum-src/src/lib.rs
           grep -q 'default = \["embedded-console", "swagger-ui"\]' waxum-src/Cargo.toml
 
@@ -122,6 +125,15 @@ jobs:
           grep -q 'WhatsApp REST API Gateway' ../out/cli-help.txt
           readelf -d target/release/waxum | grep NEEDED > ../out/linked-libraries.txt
           "$HOME/.cargo/bin/cargo" tree --no-default-features -e normal > ../out/headless-dependencies.txt
+
+      - name: Offline loopback API, auth, headless routes and idle resource smoke
+        run: |
+          set -eu
+          chmod +x full/waxum waxum-src/target/release/waxum
+          python3 wabridge/tools/smoke-waxum-core-v1.py \
+            --full full/waxum --candidate waxum-src/target/release/waxum \
+            --json-out out/offline-smoke.json --markdown-out out/offline-smoke.md
+          cat out/offline-smoke.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Measure headless Core against exact production executable
         run: |
