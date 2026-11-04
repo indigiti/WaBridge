@@ -42,7 +42,7 @@ function start_admin_session(): void {
         'domain'=>'',
         'secure'=>$https,
         'httponly'=>true,
-        'samesite'=>'Strict',
+        'samesite'=>'Lax',
     ]);
     if (!session_start()) throw new RuntimeException('Unable to start administrator session');
 }
@@ -144,3 +144,4 @@ function validate_message(array $input): array {
 }
 
 require_once __DIR__ . '/gateway-provider.php';
+require_once __DIR__ . '/auth-navigation.php';

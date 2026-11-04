@@ -10,7 +10,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; form-action 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'");
-if (!admin_authenticated()) { http_response_code(403); exit('Sign in to WaBridge first.'); }
+require_admin_html_page();
 $notice=''; $error='';
 if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
     try {
@@ -63,8 +63,7 @@ $workerHealth=worker_health_read();
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message Activity - WaBridge</title>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
-<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
+  <?php ui_head_assets(); ?>
 </head><body class="dashboard-page message-log-page">
 <?php ui_shell_start('messages'); ?>
 <main class="workspace message-workspace">

@@ -12,6 +12,8 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-s
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000');
 $notice = '';
 $error = '';
+$loginReturn=auth_safe_return_path((string)(($_SERVER['REQUEST_METHOD']??'GET')==='POST' ? ($_POST['return']??'') : ($_GET['return']??'')));
+$expiredForm=(string)($_GET['reason']??'')==='expired';
 $issuedToken='';
 $queuedJobId='';
 $setupError='';
@@ -36,7 +38,7 @@ try {
                 $_SESSION['last_seen']=time();
                 $notice='Signed in successfully.';
                 audit_event('admin_login','admin');
-                header('Location: /wabridge/',true,303);
+                header('Location: '.$loginReturn,true,303);
                 exit;
             } else {
                 usleep(200000);
@@ -131,6 +133,10 @@ try {
     }
 }
 $authed = admin_authenticated();
+if($authed&&($_SERVER['REQUEST_METHOD']??'GET')==='GET'&&isset($_GET['return'])&&$loginReturn!=='/wabridge/'){
+    header('Location: '.$loginReturn,true,302);
+    exit;
+}
 $view=(string)($_GET['view']??'overview');
 if (!in_array($view,['overview','devices','sessions','messaging','api-applications'],true)) $view='overview';
 $apiClients=[];
@@ -202,12 +208,14 @@ if ($authed) {
         <div class="card-symbol" aria-hidden="true">✦</div>
         <div class="eyebrow">Your secure workspace</div>
         <h1 id="login-title">Welcome back.</h1>
-        <p class="intro">Sign in to manage your connections, messaging and integrations.</p>
+        <p class="intro">Sign in securely to continue to <?= escape(auth_destination_label($loginReturn)) ?>.</p>
+        <?php if($expiredForm): ?><div class="notice notice-warning" role="status">Your sign-in expired. The previous form was not submitted. Sign in and submit it again.</div><?php endif; ?>
         <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?></div><?php endif; ?>
         <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
         <form method="post" class="auth-form">
           <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
           <input type="hidden" name="action" value="login">
+          <input type="hidden" name="return" value="<?= escape($loginReturn) ?>">
           <div class="field">
             <label for="u">Username</label>
             <div class="input-holder"><span class="input-glyph" aria-hidden="true">◎</span><input id="u" name="username" autocomplete="username" placeholder="Your username" required autofocus></div>

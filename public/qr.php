@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
-if (!admin_authenticated()) { http_response_code(403);exit('Forbidden'); }
+require_admin_html_page();
 $id=(string)($_GET['sid']??'');
 if (!permitted_session($id)) { http_response_code(400);exit('Invalid session'); }
 header('Cache-Control: no-store, private');

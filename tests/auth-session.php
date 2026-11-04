@@ -14,7 +14,7 @@ require dirname(__DIR__).'/src/bootstrap.php';
 start_admin_session();
 if (session_name()!=='WABRIDGESESSID') throw new RuntimeException('Session cookie not namespace-isolated');
 $p=session_get_cookie_params();
-if ($p['path']!=='/wabridge/' || !$p['secure'] || !$p['httponly'] || $p['samesite']!=='Strict')
+if ($p['path']!=='/wabridge/' || !$p['secure'] || !$p['httponly'] || $p['samesite']!=='Lax')
     throw new RuntimeException('Incorrect cookie path or browser security attributes');
 if (admin_authenticated()) throw new RuntimeException('Anonymous request should not be authorized');
 $_SESSION['admin']=true;
