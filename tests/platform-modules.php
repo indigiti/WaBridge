@@ -81,4 +81,19 @@ check($cloudMessage['accepted']&&$cloudMessage['delivery']==='unconfirmed','appr
 $raw=(string)file_get_contents($folder.'/state.json');
 check(!str_contains($raw,$secret),'provider credentials never persisted');
 check(count(platform_page('contacts',1,10)['rows'])===1,'bounded pilot query');
-echo "Product modules, consent-safe scheduling, media, cloud adapters, rule previews: PASS\n";
+require $root.'/src/platform/webhook-read.php';
+$raw='{"event":"receipt","test":true}';
+storage_event_accept('provider-event-test-00001','unit-session','receipt',$raw,
+    ['event'=>'receipt'],[
+        'subscriber_demo'=>['sessions'=>['unit-session'],'events'=>['receipt']]
+    ]);
+$delivery=storage_event_claim();
+check($delivery!==null,'webhook delivery should be queued');
+storage_event_finish((string)$delivery['event_id'],(string)$delivery['subscriber_id'],
+    'dead',time(),503);
+$webhookPage=platform_webhook_page(1,10,'dead');
+check(count($webhookPage['rows'])===1,'filtered dead webhook history');
+check(!isset($webhookPage['rows'][0]['payload']),'webhook history excludes event body');
+check(storage_event_replay((string)$delivery['event_id'],(string)$delivery['subscriber_id']),
+    'failed outbound webhook can be safely replayed once');
+echo "Product modules, consent-safe scheduling, media, Cloud adapters, rule previews and webhooks: PASS\n";

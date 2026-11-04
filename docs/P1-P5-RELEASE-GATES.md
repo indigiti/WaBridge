@@ -15,7 +15,7 @@ This work adds feature modules without requiring Node.js.
 
 ## P2 — Developer
 - Versioned existing APIs remain compatible.
-- API playground examples, webhook queue/dead-letter status and guarded
+- API playground examples, paginated payload-free webhook history, webhook queue/dead-letter status and guarded
   replay action. Endpoint URLs are never accepted from request payloads.
 - Never display raw API tokens or webhook secrets.
 
