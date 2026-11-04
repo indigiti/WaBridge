@@ -39,7 +39,7 @@ $timeline=$job===null?[]:storage_message_timeline($id);
 <?php if($job!==null): ?>
 <section class="glass-panel workspace-section">
 <div class="panel-heading"><div><div class="eyebrow">MESSAGE REFERENCE</div><h2><?= escape($id) ?></h2></div><span class="subtle-tag"><?= escape(message_log_status_text($status)) ?></span></div>
-<p class="panel-help">Session <?= escape((string)$job['session_id']) ?> · To <?= escape(message_log_mask_recipient((string)$job['destination'])) ?> · Attempts <?= (int)$job['attempts'] ?></p>
+<p class="panel-help">Session <?= escape((string)$job['session_id']) ?> · To <?= escape(message_log_mask_recipient((string)$job['destination'])) ?> · Attempts <?= (int)$job['attempts'] ?><?php if($job['state']==='queued'&&(int)($job['next_at']??0)>time()): ?> · Scheduled <?= escape(message_log_time((int)$job['next_at'])) ?><?php endif;?></p>
 <?php if($timeline):?>
 <div class="table-scroll"><table><thead><tr><th>Recorded state</th><th>Time (UTC)</th><th>Evidence</th><th>Event GUID</th></tr></thead><tbody>
 <?php foreach($timeline as $event):?>
@@ -50,6 +50,7 @@ $timeline=$job===null?[]:storage_message_timeline($id);
     'worker_claim'=>'Worker claimed message; upstream outcome pending',
     'gateway_accepted'=>'Waxum accepted message, delivery unconfirmed',
     'verified_provider_receipt'=>'Verified provider-ID-correlated receipt event',
+    'operator_cancel'=>'Administrator cancelled before dispatch',
     default=>'Outcome uncertain; do not auto-retry',
 }) ?></td>
 <td><small><?= escape((string)$event['guid']) ?></small></td></tr>

@@ -81,7 +81,7 @@ function storage_admin_messages(int $limit=50): array {
     $limit=max(1,min(200,$limit));
     $db=store();
     if ($db instanceof JsonStore) return $db->adminMessages($limit);
-    $q=$db->prepare('SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.updated_at,j.attempts,j.response_code,j.error,
+    $q=$db->prepare('SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.next_at,j.updated_at,j.attempts,j.response_code,j.error,
         j.engine_response AS reason_code,
         r.provider_id,r.state AS receipt_state,r.observed_at AS receipt_observed_at
         FROM jobs j LEFT JOIN message_receipts r ON r.job_id=j.id
@@ -102,6 +102,7 @@ function storage_admin_messages(int $limit=50): array {
             'destination'=>(string)$job['destination'],
             'state'=>(string)$job['state'],
             'created_at'=>(int)$job['created_at'],
+            'next_at'=>(int)($job['next_at']??0),
             'updated_at'=>(int)$job['updated_at'],
             'attempts'=>(int)$job['attempts'],
             'response_code'=>$job['response_code']===null?null:(int)$job['response_code'],

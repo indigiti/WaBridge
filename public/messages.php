@@ -108,9 +108,9 @@ $workerHealth=worker_health_read();
 <tr><td><?= escape(message_log_time((int)$row['created_at'])) ?></td>
 <td><a class="table-link" href="/wabridge/trace?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
 <td><?= escape(message_log_mask_recipient($row['destination'])) ?></td>
-<td><span class="subtle-tag <?= in_array($row['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text($row['effective_state'])) ?></span></td>
+<td><span class="subtle-tag <?= in_array($row['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape($row['effective_state']==='queued'&&(int)($row['next_at']??0)>time()?'Scheduled — not yet due':message_log_status_text($row['effective_state'])) ?></span></td>
 <td><?= $row['response_code']===null?'Not attempted':('HTTP '.(int)$row['response_code']) ?><small>Attempts: <?= (int)$row['attempts'] ?></small><?php if ($row['effective_state']==='needs_review'): ?><small class="message-reason"><?= escape(message_log_reason_text(message_log_reason_code($row))) ?></small><?php endif; ?><?php if (!empty($row['receipt']['provider_id'])): ?><small>Provider ID <?= escape(substr($row['receipt']['provider_id'],0,24)) ?></small><?php endif; ?></td>
-<td><?= escape(message_log_time((int)($row['receipt']['observed_at']??$row['updated_at']))) ?></td></tr>
+<td><?= escape(message_log_time((int)($row['receipt']['observed_at']??$row['updated_at']))) ?><?php if($row['effective_state']==='queued'&&(int)($row['next_at']??0)>time()): ?><small>Due <?= escape(message_log_time((int)$row['next_at'])) ?></small><?php endif;?></td></tr>
 <?php endforeach; ?>
 <?php if (!$rows): ?><tr><td colspan="6" class="empty-cell">No messages match this filter.</td></tr><?php endif; ?>
 </tbody></table></div>

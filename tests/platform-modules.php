@@ -38,6 +38,8 @@ check(valid_job_id($s['job_id']),'scheduled job GUID');
 $db=store();check($db instanceof JsonStore,'JSON pilot driver');
 $job=$db->read(static fn(array $state):array=>$state['jobs'][$s['job_id']]);
 check($job['next_at']===$when,'future queue notBefore persisted');
+check((int)(storage_message_detail($s['job_id'])['next_at']??0)===$when,
+    'Scheduled due date must appear in bounded message read model');
 $cancelJob=platform_schedule($c['id'],$t['id'],'unit-session',time()+720);
 check(platform_schedule_cancel($cancelJob['id']),'cancel a queued job');
 $cancelled=$db->read(static fn(array $state):array=>$state['jobs'][$cancelJob['job_id']]);

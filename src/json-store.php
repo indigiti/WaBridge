@@ -252,6 +252,7 @@ final class JsonStore {
                     'destination'=>(string)($job['destination']??''),
                     'state'=>(string)($job['state']??'unknown'),
                     'created_at'=>(int)($job['created_at']??0),
+                    'next_at'=>(int)($job['next_at']??0),
                     'updated_at'=>(int)($job['updated_at']??0),
                     'attempts'=>(int)($job['attempts']??0),
                     'response_code'=>isset($job['response_code'])?(int)$job['response_code']:null,
