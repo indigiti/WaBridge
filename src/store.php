@@ -260,6 +260,22 @@ function record_provider_message(PDO|JsonStore $db,string $jobId,string $provide
     $q=$db->prepare("INSERT OR IGNORE INTO message_receipts(job_id,provider_id,state,observed_at) VALUES(?,?,'accepted',?)");
     $q->execute([$jobId,$providerId,time()]);
 }
+/**
+ * Receipt events can arrive out of order. A late 'sent' cannot undo a
+ * verified delivery/read; a late failure cannot erase delivery evidence.
+ * An authoritative later delivery/read can resolve a prior failed receipt.
+ */
+function receipt_state_can_advance(string $current,string $next):bool {
+    if($current===$next)return false;
+    return match($current) {
+        'read'=>false,
+        'delivered'=>$next==='read',
+        'failed'=>in_array($next,['delivered','read'],true),
+        'sent'=>in_array($next,['delivered','read','failed'],true),
+        'accepted'=>in_array($next,['sent','delivered','read','failed'],true),
+        default=>false,
+    };
+}
 function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $event): bool {
     // Never guess a receipt's job. Require an exact upstream message ID.
     $messageId=(string)($event['message_id']??($event['data']['message_id']??''));
@@ -274,9 +290,12 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
         $match=$select->fetch();
         if(!$match){$db->commit();return false;}
         $next=$map[$rawState];$now=time();
-        $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
-        $stmt->execute([$next,$now,$eventId,$messageId]);
-        if($next!==(string)$match['state']) {
+        $advance=receipt_state_can_advance((string)$match['state'],$next);
+        if($advance) {
+            $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
+            $stmt->execute([$next,$now,$eventId,$messageId]);
+        }
+        if($advance) {
             $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
             $trace->execute([wabridge_guid(),(string)$match['job_id'],$next,'verified_provider_receipt',$now]);
         }

@@ -72,6 +72,14 @@ eq(update_receipt_from_event($db,'event-000002',['message_id'=>'unknown','status
 $stmt=$db->prepare('SELECT state FROM message_receipts WHERE job_id=?');
 $stmt->execute([$receiptJob['id']]);
 eq($stmt->fetchColumn(),'delivered','Receipt must be delivered');
+eq(update_receipt_from_event($db,'event-out-of-order-003',
+    ['message_id'=>'provider-message-123','status'=>'sent']),true,
+    'Late sent webhook should match');
+$stmt->execute([$receiptJob['id']]);
+eq($stmt->fetchColumn(),'delivered','SQLite receipt status must not regress');
+$verifiedHistory=storage_message_timeline($receiptJob['id']);
+eq(count(array_filter($verifiedHistory,static fn(array $r):bool=>$r['state']==='sent')),
+    0,'Ignored stale receipt must not create a false timeline event');
 audit_event('test_action','test_actor','test_target');
 eq((int)$db->query("SELECT COUNT(*) FROM audit_entries WHERE event='test_action'")->fetchColumn(),1,'Audit insert');
 $features=engine_capabilities();

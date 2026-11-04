@@ -286,11 +286,12 @@ final class JsonStore {
         return $this->mutate(static function(array &$s)use($providerId,$state,$eventId) {
             if (!isset($s['receipts'][$providerId])) return false;
             $previous=(string)$s['receipts'][$providerId]['state'];
-            $s['receipts'][$providerId]['state']=$state;
-            $s['receipts'][$providerId]['source_event_id']=$eventId;
-            $s['receipts'][$providerId]['observed_at']=time();
-            if($state!==$previous)
+            if(receipt_state_can_advance($previous,$state)) {
+                $s['receipts'][$providerId]['state']=$state;
+                $s['receipts'][$providerId]['source_event_id']=$eventId;
+                $s['receipts'][$providerId]['observed_at']=time();
                 self::trace($s,(string)$s['receipts'][$providerId]['job_id'],$state,'verified_provider_receipt');
+            }
             return true;
         });
     }

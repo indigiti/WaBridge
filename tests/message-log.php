@@ -39,6 +39,14 @@ ensure(message_log_effective_status($after[0])==='accepted','HTTP 200 must not i
 ensure(update_receipt_from_event($db,'event-test-001',['message_id'=>'unmatched','status'=>'delivered'])===false,'unknown provider ID not matched');
 ensure(update_receipt_from_event($db,'event-test-002',['message_id'=>'provider-message-test','status'=>'delivered'])===true,'delivery must match provider ID');
 ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered','verified delivery');
+ensure(update_receipt_from_event($db,'event-test-old-sent',['message_id'=>'provider-message-test','status'=>'sent'])===true,
+    'late sent receipt should be accepted as matching event');
+ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered',
+    'Out-of-order sent receipt may not downgrade delivery');
+ensure(update_receipt_from_event($db,'event-test-old-fail',['message_id'=>'provider-message-test','status'=>'failed'])===true,
+    'late failed receipt should be matched');
+ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered',
+    'Late failed receipt may not erase delivery evidence');
 $stateCounts=storage_message_status_counts();
 ensure($stateCounts['delivered']===1&&$stateCounts['accepted']===0,
     'Delivered jobs must not be double-counted as gateway-accepted');
