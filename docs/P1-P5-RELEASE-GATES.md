@@ -6,7 +6,7 @@ This work adds feature modules without requiring Node.js.
 ## P1 — Messaging
 - Opt-in contact directory (private, bounded), withdrawal and dispatch-time checks
   for scheduled jobs.
-- Text template creation/preview and UTC scheduling (1 minute–30 days)
+- Text template creation/preview and UTC scheduling (1 minute–30 days) with fail-closed metadata saving and automatic queued-only compensating cancellation
   using the existing queue's next_at field and idempotency protection.
 - Opted-in, one-shot media send adapter supporting image, document, audio and
   video by base64, 1 MiB max; send logs contain metadata only. Provider

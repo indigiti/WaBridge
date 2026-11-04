@@ -40,6 +40,22 @@ $job=$db->read(static fn(array $state):array=>$state['jobs'][$s['job_id']]);
 check($job['next_at']===$when,'future queue notBefore persisted');
 check((int)(storage_message_detail($s['job_id'])['next_at']??0)===$when,
     'Scheduled due date must appear in bounded message read model');
+$beforeFailedSchedule=$db->read(static fn(array $state):array=>$state['jobs']);
+try{
+    platform_schedule($c['id'],$t['id'],'unit-session',time()+650,
+        static function(array $record):void{
+            throw new RuntimeException('Simulated metadata capacity failure');
+        });
+    throw new RuntimeException('Should reject unpersisted schedule');
+}catch(RuntimeException $expected){
+    check(str_contains($expected->getMessage(),'metadata could not be saved'),
+        'Scheduling should report metadata persistence failure');
+}
+$afterFailedSchedule=$db->read(static fn(array $state):array=>$state['jobs']);
+check(count($afterFailedSchedule)===count($beforeFailedSchedule)+1,'Failed schedule still yields audit-visible job');
+$newIds=array_diff(array_keys($afterFailedSchedule),array_keys($beforeFailedSchedule));
+$orphan=$afterFailedSchedule[array_values($newIds)[0]];
+check($orphan['state']==='cancelled','Metadata failure must atomically cancel its queued job');
 $cancelJob=platform_schedule($c['id'],$t['id'],'unit-session',time()+720);
 check(platform_schedule_cancel($cancelJob['id']),'cancel a queued job');
 $cancelled=$db->read(static fn(array $state):array=>$state['jobs'][$cancelJob['job_id']]);

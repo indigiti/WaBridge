@@ -89,7 +89,49 @@ function platform_template_render(array $template,array $contact,?string $date=n
     if(preg_match('/{{.*?}}/s',$rendered))throw new InvalidArgumentException('Unresolved template variable');
     return platform_text($rendered,2000);
 }
-function platform_schedule(string $contactId,string $templateId,string $session,int $when):array {
+/**
+ * Cancel a scheduler-owned job only while it is still queued. Both storage
+ * drivers use an atomic conditional state transition. Intermediate states
+ * with unknown upstream send outcome are never touched.
+ */
+function platform_cancel_unpublished_job(string $jobId,string $proof):bool {
+    if(!valid_job_id($jobId)||!in_array($proof,['operator_cancel','metadata_save_failed'],true))
+        throw new InvalidArgumentException('Invalid scheduled cancellation');
+    $db=store();$now=time();
+    if($db instanceof JsonStore){
+        return $db->mutate(static function(array &$s)use($jobId,$proof,$now):bool {
+            $job=$s['jobs'][$jobId]??null;
+            if(!is_array($job)||($job['state']??'')!=='queued'
+              ||($job['client_id']??'')!=='scheduler')return false;
+            $s['jobs'][$jobId]['state']='cancelled';
+            $s['jobs'][$jobId]['updated_at']=$now;
+            $s['timeline'][$jobId]??=[];
+            $s['timeline'][$jobId][]=['guid'=>wabridge_guid(),
+                'state'=>'cancelled','proof'=>$proof,'at'=>$now];
+            if(count($s['timeline'][$jobId])>20)
+                $s['timeline'][$jobId]=array_slice($s['timeline'][$jobId],-20);
+            return true;
+        });
+    }
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $stmt=$db->prepare("UPDATE jobs SET state='cancelled',updated_at=?
+            WHERE id=? AND client_id='scheduler' AND state='queued'");
+        $stmt->execute([$now,$jobId]);
+        $cancelled=$stmt->rowCount()===1;
+        if($cancelled){
+            $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+            $trace->execute([wabridge_guid(),$jobId,'cancelled',$proof,$now]);
+        }
+        $db->commit();
+        return $cancelled;
+    }catch(Throwable $e){
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
+}
+function platform_schedule(string $contactId,string $templateId,string $session,int $when,
+                           ?callable $saveMetadata=null):array {
     if(!valid_job_id($contactId)||!valid_job_id($templateId))
         throw new InvalidArgumentException('Choose a contact and template');
     if(!permitted_session($session))throw new InvalidArgumentException('Session not permitted');
@@ -108,10 +150,25 @@ function platform_schedule(string $contactId,string $templateId,string $session,
         'session_id'=>$session,'job_id'=>$out['id'],'send_at'=>$when,
         'consent_version'=>(string)$contact['consent_version'],
         'created_at'=>time(),'updated_at'=>time()];
-    platform_state_io(true,static function(array &$s)use($row):void{
-        if(count($s['outbox'])>=300)array_shift($s['outbox']);
-        $s['outbox'][$row['id']]=$row;
-    });
+    try{
+        if($saveMetadata!==null)$saveMetadata($row);
+        else platform_state_io(true,static function(array &$s)use($row):void{
+            // Never evict active schedule metadata. An orphaned queued message
+            // would then fail its dispatch-time consent check without appearing
+            // in the operator's schedule directory.
+            if(count($s['outbox'])>=300)
+                throw new RuntimeException('Schedule pilot capacity reached');
+            $s['outbox'][$row['id']]=$row;
+        });
+    }catch(Throwable $e){
+        try{
+            $cancelled=platform_cancel_unpublished_job((string)$out['id'],'metadata_save_failed');
+            if(!$cancelled)error_log('WaBridge scheduling metadata failed; queue job no longer unclaimed');
+        }catch(Throwable $cancelError){
+            error_log('WaBridge scheduling compensating cancellation '.get_class($cancelError));
+        }
+        throw new RuntimeException('Schedule metadata could not be saved; inspect message activity. Job is not safe to retry automatically.',0,$e);
+    }
     audit_event('scheduled_message_created','admin',$out['id'],['send_at'=>$when]);
     return $row;
 }
@@ -122,35 +179,7 @@ function platform_schedule_cancel(string $scheduleId):bool {
     if(!$record)return false;
     $jobId=(string)($record['job_id']??'');
     if(!valid_job_id($jobId))return false;
-    $db=store();$now=time();$cancelled=false;
-    if($db instanceof JsonStore) {
-        $cancelled=$db->mutate(static function(array &$s)use($jobId,$now):bool {
-            if(!isset($s['jobs'][$jobId])||$s['jobs'][$jobId]['state']!=='queued'
-               ||($s['jobs'][$jobId]['client_id']??'')!=='scheduler')return false;
-            $s['jobs'][$jobId]['state']='cancelled';
-            $s['jobs'][$jobId]['updated_at']=$now;
-            $s['timeline'][$jobId]??=[];
-            $s['timeline'][$jobId][]=[
-                'guid'=>wabridge_guid(),'state'=>'cancelled','proof'=>'operator_cancel','at'=>$now
-            ];
-            return true;
-        });
-    }else{
-        $db->exec('BEGIN IMMEDIATE');
-        try {
-            $stmt=$db->prepare("UPDATE jobs SET state='cancelled',updated_at=? WHERE id=? AND client_id='scheduler' AND state='queued'");
-            $stmt->execute([$now,$jobId]);
-            $cancelled=$stmt->rowCount()===1;
-            if($cancelled){
-                $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
-                $trace->execute([wabridge_guid(),$jobId,'cancelled','operator_cancel',$now]);
-            }
-            $db->commit();
-        }catch(Throwable $e){
-            if($db->inTransaction())$db->rollBack();
-            throw $e;
-        }
-    }
+    $cancelled=platform_cancel_unpublished_job($jobId,'operator_cancel');
     if($cancelled){
         platform_state_io(true,static function(array &$s)use($scheduleId):void{
             if(isset($s['outbox'][$scheduleId])){
