@@ -45,6 +45,7 @@ check(platform_schedule_cancel($cancelJob['id']),'cancel a queued job');
 $cancelled=$db->read(static fn(array $state):array=>$state['jobs'][$cancelJob['job_id']]);
 check($cancelled['state']==='cancelled','cancelled job state persists');
 check(!platform_schedule_cancel($cancelJob['id']),'cancel is idempotent and cannot repeat');
+check(platform_scheduled_consent_valid($s['job_id'],$c['phone']),'original consent grant matches scheduled job');
 $counter=0;
 $sender=static function()use(&$counter):array{$counter++;return ['http'=>200,'data'=>['message_id'=>'unexpected']];};
 $connected=static fn(string $sid):array=>['http'=>200,'is_logged_in'=>true,'socket_alive'=>true];
@@ -57,6 +58,8 @@ try{platform_schedule($c['id'],$t['id'],'unit-session',time()+600);
     throw new RuntimeException('withdrawn consent allowed');
 }catch(InvalidArgumentException $expected){}
 $c=platform_contact_save('Sample Person','919876543210','new-optin-2026',true);
+check(!platform_scheduled_consent_valid($s['job_id'],$c['phone']),
+    'old scheduled job cannot reactivate after a new consent grant');
 $m=platform_media_send('unit-session',$c['id'],'image','mock-bytes','image/png','caption','',
     static function(string $method,string $path,array $payload):array{
         check(str_ends_with($path,'/messages/image'),'media route');

@@ -23,6 +23,7 @@ function platform_contact_save(string $name,string $phone,string $evidence,bool 
         $id=$existing??wabridge_guid();$now=time();
         $row=['id'=>$id,'name'=>$name,'phone'=>$phone,'consented'=>$consented,
             'consent_evidence'=>$evidence,'consent_at'=>$consented?$now:null,
+            'consent_version'=>$consented?wabridge_guid():null,
             'created_at'=>$s['contacts'][$id]['created_at']??$now,'updated_at'=>$now];
         $s['contacts'][$id]=$row;
         return $row;
@@ -35,6 +36,7 @@ function platform_contact_revoke(string $id):bool {
         $s['contacts'][$id]['consented']=false;
         $s['contacts'][$id]['consent_evidence']='withdrawn';
         $s['contacts'][$id]['consent_at']=null;
+        $s['contacts'][$id]['consent_version']=null;
         $s['contacts'][$id]['updated_at']=time();
         return true;
     });
@@ -44,6 +46,25 @@ function platform_contact_consented(string $phone):bool {
     return platform_state_io(false,static function(array $s)use($phone):bool {
         foreach($s['contacts'] as $row)
             if(hash_equals((string)$row['phone'],$phone))return ($row['consented']??false)===true;
+        return false;
+    });
+}
+/**
+ * Check the original grant identity rather than just current opt-in state.
+ * Once revoked, no previously queued message may become active after re-opt-in.
+ */
+function platform_scheduled_consent_valid(string $jobId,string $phone):bool {
+    if(!valid_job_id($jobId))return false;
+    $phone=platform_phone($phone);
+    return platform_state_io(false,static function(array $s)use($jobId,$phone):bool {
+        foreach($s['outbox'] as $schedule){
+            if(($schedule['job_id']??'')!==$jobId)continue;
+            $contact=$s['contacts'][$schedule['contact_id']??'']??null;
+            if(!is_array($contact)||($contact['consented']??false)!==true)return false;
+            $version=(string)($schedule['consent_version']??'');
+            return $version!=='' && hash_equals($version,(string)($contact['consent_version']??''))
+                && hash_equals($phone,(string)$contact['phone']);
+        }
         return false;
     });
 }
@@ -85,6 +106,7 @@ function platform_schedule(string $contactId,string $templateId,string $session,
     // Separate metadata never stores the outgoing message text.
     $row=['id'=>wabridge_guid(),'contact_id'=>$contactId,'template_id'=>$templateId,
         'session_id'=>$session,'job_id'=>$out['id'],'send_at'=>$when,
+        'consent_version'=>(string)$contact['consent_version'],
         'created_at'=>time(),'updated_at'=>time()];
     platform_state_io(true,static function(array &$s)use($row):void{
         if(count($s['outbox'])>=300)array_shift($s['outbox']);

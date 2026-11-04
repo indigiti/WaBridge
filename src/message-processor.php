@@ -68,7 +68,7 @@ function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string
     if(($job['client_id']??'')==='scheduler') {
         try {
             require_once __DIR__.'/platform/service.php';
-            if(!platform_contact_consented((string)$job['destination'])){
+            if(!platform_scheduled_consent_valid($id,(string)$job['destination'])){
                 complete_job($db,$id,'needs_review',0,'consent_revoked');
                 return ['id'=>$id,'state'=>'needs_review','http'=>0,'reason'=>'consent_revoked'];
             }
