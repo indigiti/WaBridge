@@ -60,7 +60,7 @@ requireParts($read('tools/build-assets.php'),[
 ],'Unified build');
 requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href,'],'Accessible navigation');
 requireParts($platform,[
-  'admin_authenticated()','assert_csrf()',
+  'require_admin_html_page()','assert_csrf()',
   'platform_contact_save','platform_schedule','platform_media_send',
   'platform_rule_create','platform_workspace_create','platform_cloud_connect',
   'platform_page($collection,$page,10,$search)','ui_shell_start($module)',
@@ -85,10 +85,24 @@ requireParts($read('public/assets/wabridge-design-v6.css'),[
     'grid-template-columns:repeat(2,minmax(0,1fr))'
 ],'Module premium form/spacing');
 requireParts($msg,[
-    'admin_authenticated()','assert_csrf()','process_next_message',
+    'require_admin_html_page()','assert_csrf()','process_next_message',
     'storage_message_page','message_log_effective_status','escape(',
     "ui_shell_start('messages')",'wabridge-ui-v6.css'
 ],'Message log');
+foreach([
+    'public/audit.php','public/diagnostics-view.php','public/gateway-settings.php',
+    'public/messages.php','public/performance.php','public/platform.php',
+    'public/qr.php','public/reports-view.php','public/storage-settings.php',
+    'public/trace.php','public/verification.php','public/webhook-events.php',
+] as $protected) {
+    requireParts($read($protected),['require_admin_html_page()'],$protected.' browser auth redirect');
+    if(str_contains($read($protected),"exit('Sign in to WaBridge first"))
+        throw new RuntimeException('Unstyled signed-out response in '.$protected);
+}
+requireParts($index,[
+    'auth_safe_return_path','auth_destination_label','name="return"',
+    "header('Location: '.\$loginReturn,true,303)"
+],'Login must resume a validated, same-app page');
 requireParts($routes,[
     'RewriteEngine On','RewriteBase /wabridge/',
     'RewriteRule ^messages/?$','RewriteRule ^gateway/?$',

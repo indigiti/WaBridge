@@ -27,6 +27,8 @@ jobs:
           php tests/loader.php
           php tests/gateway-settings.php
           php tests/auth-session.php
+          php tests/auth-navigation.php
+          bash tests/auth-browser-flow.sh
       - name: JSON backend tests without a database connection
         run: php tests/json-store.php
       - name: Message activity, verified receipts and browser worker checks

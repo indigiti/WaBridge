@@ -46,8 +46,7 @@ if ($mode==='sqlite') {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Storage Settings · WaBridge</title>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
-<script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script></head>
+  <?php ui_head_assets(); ?></head>
 <body class="dashboard-page"><?php ui_shell_start('storage'); ?>
 <main class="workspace">
 <?php ui_breadcrumb('Administration','Storage settings'); ?>
