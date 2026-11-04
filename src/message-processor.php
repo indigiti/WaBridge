@@ -63,6 +63,21 @@ function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string
     if($job===null)return null;
     $sender??='gateway';
     $id=(string)$job['id'];
+    // Scheduled jobs are opt-in only. Re-check at dispatch, not just when
+    // the schedule was created, to respect consent withdrawal.
+    if(($job['client_id']??'')==='scheduler') {
+        try {
+            require_once __DIR__.'/platform/service.php';
+            if(!platform_scheduled_consent_valid($id,(string)$job['destination'])){
+                complete_job($db,$id,'needs_review',0,'consent_revoked');
+                return ['id'=>$id,'state'=>'needs_review','http'=>0,'reason'=>'consent_revoked'];
+            }
+        } catch(Throwable $e) {
+            error_log('WaBridge scheduled consent guard '.get_class($e));
+            complete_job($db,$id,'needs_review',0,'consent_unavailable');
+            return ['id'=>$id,'state'=>'needs_review','http'=>0,'reason'=>'consent_unavailable'];
+        }
+    }
     try {
         if(!valid_session_id((string)$job['session_id']))
             throw new RuntimeException('invalid_session');

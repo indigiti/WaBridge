@@ -17,7 +17,7 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
     $perPage=max(1,min(50,$perPage));
     if($jobId!==''&&!valid_job_id($jobId))throw new InvalidArgumentException('Invalid message ID');
     if($session!==''&&!valid_session_id($session))throw new InvalidArgumentException('Invalid session');
-    $valid=['','queued','processing','accepted','sent','delivered','read','failed','needs_review'];
+    $valid=['','queued','processing','accepted','sent','delivered','read','failed','needs_review','cancelled'];
     if(!in_array($status,$valid,true))throw new InvalidArgumentException('Invalid delivery status');
     $offset=($page-1)*$perPage;
     $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
@@ -43,6 +43,7 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
                     'destination'=>(string)$job['destination'],
                     'state'=>(string)$job['state'],
                     'created_at'=>(int)$job['created_at'],
+                    'next_at'=>(int)($job['next_at']??0),
                     'updated_at'=>(int)$job['updated_at'],
                     'attempts'=>(int)$job['attempts'],
                     'response_code'=>isset($job['response_code'])?(int)$job['response_code']:null,
@@ -71,7 +72,7 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
         $parameters[]=$status;
     }
     $whereSql=$where?' WHERE '.implode(' AND ',$where):'';
-    $sql='SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.updated_at,j.attempts,j.response_code,j.error,
+    $sql='SELECT j.id,j.client_id,j.session_id,j.destination,j.state,j.created_at,j.next_at,j.updated_at,j.attempts,j.response_code,j.error,
         j.engine_response AS reason_code,r.provider_id,r.state AS receipt_state,r.observed_at AS receipt_observed_at
         FROM jobs j LEFT JOIN message_receipts r ON r.job_id=j.id'.$whereSql.
         ' ORDER BY j.created_at DESC,j.id DESC LIMIT ? OFFSET ?';
@@ -93,6 +94,7 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
             'destination'=>(string)$job['destination'],
             'state'=>(string)$job['state'],
             'created_at'=>(int)$job['created_at'],
+                    'next_at'=>(int)($job['next_at']??0),
             'updated_at'=>(int)$job['updated_at'],
             'attempts'=>(int)$job['attempts'],
             'response_code'=>$job['response_code']===null?null:(int)$job['response_code'],
@@ -156,7 +158,7 @@ function storage_message_timeline(string $id):array {
  */
 function storage_message_status_counts():array {
     $counts=array_fill_keys(['queued','processing','accepted','sent','delivered',
-        'read','failed','needs_review','unknown'],0);
+        'read','failed','needs_review','cancelled','unknown'],0);
     $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
         static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
     $db=store();

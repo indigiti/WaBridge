@@ -49,6 +49,12 @@ A running supervised Rust gateway is still necessary for actual QR pairing and m
 
 Full acceptance and rollback instructions: [P0–P5 optimization runbook](docs/OPTIMIZATION-P0-P5.md).
 
+## P1–P5 modular product foundation
+
+The authenticated console includes Contacts, Templates, Schedules, Media, Automation, Developer Tools, Security, Workspaces and Official Cloud API routes. New internal records use UUIDv4 and history pages load at most 10 records. Private pilot metadata uses a separate bounded atomic JSON store (2 MiB). Scheduling uses the existing PHP queue and rechecks contact consent at dispatch.
+
+P3 automatic replies, P4 multi-role authorization, and P5 commercial tenancy/billing remain disabled until production isolation, security and provider tests pass. An operator can configure Cloud API integration using a private flag, but Meta verification and delivery still require real acceptance. See [production gates](docs/P1-P5-RELEASE-GATES.md).
+
 ## Requirements
 
 PHP 8.2+, cURL, mbstring, JSON, session support and filesystem locks. PDO SQLite is optional for the JSON testing mode, but required for migrating existing SQLite data. HTTPS and a public/ document root are required. Keep config.php and runtime/ outside public_html.

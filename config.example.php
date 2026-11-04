@@ -5,6 +5,11 @@ return [
     // Existing private configs without this option retain their SQLite data until
     // explicitly migrated using the web-only Storage Settings screen.
     'storage_driver' => 'json',
+    // P5 official-provider connection and approved template operations; off until reviewed.
+    'enable_official_cloud_connect' => false,
+    'enable_ai_drafts' => false,
+    'ai_api_key' => getenv('WABRIDGE_AI_API_KEY') ?: '',
+    'ai_model' => getenv('WABRIDGE_AI_MODEL') ?: '',
     'gateway_url' => getenv('WABRIDGE_GATEWAY_URL') ?: 'http://127.0.0.1:3451',
     'gateway_token' => getenv('WABRIDGE_GATEWAY_TOKEN') ?: '',
     'admin_user' => getenv('WABRIDGE_ADMIN_USER') ?: 'admin',

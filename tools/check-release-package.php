@@ -11,13 +11,15 @@ $required=[
  'public/assets/fonts/inter-latin-700.woff2',
  'public/assets/fonts/OFL.txt','public/assets/fonts/SOURCE.txt',
  'public/assets/vendor/qrcode.min.js','public/assets/qr-init.js',
- 'public/messages.php','public/performance.php','public/verification.php',
+ 'public/messages.php','public/platform.php','public/webhook-events.php','public/performance.php','public/verification.php',
  'public/qr.php','public/diagnostics-view.php','public/reports-view.php',
  'public/diagnostics.php','public/reports.php',
  'public/gateway-settings.php','public/storage-settings.php',
  'public/api/send.php','public/api/v1/messages.php',
  'public/api/v1/capabilities.php','public/api/v1/batches.php',
  'private/src/store.php','private/src/bootstrap.php','private/src/json-store.php',
+ 'private/src/platform/state.php','private/src/platform/service.php','private/src/platform/modules.php',
+ 'private/src/platform/webhook-read.php',
  'private/src/ui-shell.php','private/src/message-log.php','private/src/message-processor.php',
  'private/src/runtime-metrics.php',
  'private/src/worker-health.php',
@@ -51,6 +53,8 @@ foreach(['@font-face','.console-hero','.console-overview-grid','.activity-feed',
     if(!str_contains($bundle,$design))
         throw new RuntimeException('Incomplete design v6: '.$design);
 }
+if(!str_contains($bundle,'.platform-form-grid'))
+    throw new RuntimeException('Product module styles absent from unified premium bundle');
 if(strlen($bundle)<15000)
     throw new RuntimeException('Incomplete unified premium design stylesheet');
 foreach(['wabridge-premium-v2.css','wabridge-console-v3.css','wabridge-glass-v4.css',

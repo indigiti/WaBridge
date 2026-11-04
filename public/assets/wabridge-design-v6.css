@@ -377,3 +377,18 @@ tbody tr:hover td{background:rgba(255,255,255,.52)}
  .glass-panel,.stat-card,.ops-collapse,.pair-card,.auth-card{background:#fff!important;backdrop-filter:none!important}
  .console-global-header{background:#fff!important;backdrop-filter:none!important}
 }
+
+/* P1–P5 modular console — styles are appended to the existing single bundle. */
+.platform-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.platform-form-grid .field{min-width:0}
+.platform-form-grid .field.full{grid-column:1/-1}
+.platform-hub-subnav{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 24px}
+.platform-hub-subnav a{display:inline-flex;align-items:center;padding:8px 12px;border-radius:12px;border:1px solid rgba(110,130,170,.17);background:rgba(255,255,255,.4);color:inherit;text-decoration:none;font-size:13px}
+.platform-hub-subnav a[aria-current=page]{font-weight:700;background:rgba(190,210,235,.45)}
+.platform-panels{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.platform-list-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.platform-help{font-size:13px;line-height:1.55;opacity:.8}
+.platform-table code{font-size:11px;overflow-wrap:anywhere}
+.platform-button-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.platform-flag{font-size:11px;line-height:1.35;border:1px solid rgba(100,120,155,.24);border-radius:10px;padding:5px 9px;display:inline-flex}
+@media(max-width:680px){.platform-form-grid{grid-template-columns:1fr}}

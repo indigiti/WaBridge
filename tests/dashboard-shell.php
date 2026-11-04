@@ -13,6 +13,7 @@ $css=$read('public/assets/wabridge-design-v6.css');
 $js=$read('public/assets/wabridge-console-v3.js');
 $routes=$read('public/.htaccess');
 $msg=$read('public/messages.php');
+$platform=$read('public/platform.php');
 function requireParts(string $data,array $parts,string $area):void {
     foreach($parts as $part)
         if(!str_contains($data,$part))throw new RuntimeException($area.' missing '.$part);
@@ -58,6 +59,13 @@ requireParts($read('tools/build-assets.php'),[
     'one authored source'
 ],'Unified build');
 requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href,'],'Accessible navigation');
+requireParts($platform,[
+  'admin_authenticated()','assert_csrf()',
+  'platform_contact_save','platform_schedule','platform_media_send',
+  'platform_rule_create','platform_workspace_create','platform_cloud_connect',
+  'platform_page($collection,$page,10)','ui_shell_start($module)',
+  'platform_schedule_nonce','platform_media_nonce','csrf()'
+],'Product module routes, CSRF and bounded loads');
 requireParts($msg,[
     'admin_authenticated()','assert_csrf()','process_next_message',
     'storage_message_page','message_log_effective_status','escape(',
@@ -66,6 +74,7 @@ requireParts($msg,[
 requireParts($routes,[
     'RewriteEngine On','RewriteBase /wabridge/',
     'RewriteRule ^messages/?$','RewriteRule ^gateway/?$',
+    'RewriteRule ^(contacts|templates|schedules|media|automation|developer-tools|security-center|workspaces|cloud-api)/?$',
     'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
     'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
     'RewriteRule ^performance/?$','RewriteRule ^verification/?$',
