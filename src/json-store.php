@@ -144,19 +144,36 @@ final class JsonStore {
             return ['id'=>$id,'state'=>'queued','duplicate'=>false];
         });
     }
-    public function claim(): ?array {
-        return $this->mutate(static function(array &$s) {
+    public function claim(?string $jobId=null): ?array {
+        if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+            throw new InvalidArgumentException('Invalid job ID');
+        return $this->mutate(static function(array &$s)use($jobId) {
             $best=null;
             foreach ($s['jobs'] as $id=>$row) {
-                if ($row['state']!=='queued' || (int)$row['next_at']>time()) continue;
-                if ($best===null || $row['created_at']<$s['jobs'][$best]['created_at']) $best=$id;
+                if ($jobId!==null&&$id!==$jobId)continue;
+                if ($row['state']!=='queued'||(int)$row['next_at']>time())continue;
+                if ($best===null||$row['created_at']<$s['jobs'][$best]['created_at'])$best=$id;
             }
-            if ($best===null) return null;
+            if($best===null)return null;
             $job=$s['jobs'][$best];
             $s['jobs'][$best]['state']='processing';
             $s['jobs'][$best]['attempts']=(int)$job['attempts']+1;
             $s['jobs'][$best]['updated_at']=time();
             return $job;
+        });
+    }
+    /** Return only a queued job ID/session, never the body or recipient. */
+    public function queuedJob(?string $jobId=null): ?array {
+        if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+            throw new InvalidArgumentException('Invalid job ID');
+        return $this->read(static function(array $s)use($jobId):?array {
+            $best=null;
+            foreach($s['jobs'] as $id=>$job) {
+                if($jobId!==null&&$id!==$jobId)continue;
+                if($job['state']!=='queued'||(int)$job['next_at']>time())continue;
+                if($best===null||$job['created_at']<$s['jobs'][$best]['created_at'])$best=$id;
+            }
+            return $best===null?null:['id'=>$best,'session_id'=>(string)$s['jobs'][$best]['session_id']];
         });
     }
     public function complete(string $id,string $state,int $code,string $response): void {
@@ -200,6 +217,7 @@ final class JsonStore {
                     'attempts'=>(int)($job['attempts']??0),
                     'response_code'=>isset($job['response_code'])?(int)$job['response_code']:null,
                     'error'=>(string)($job['error']??''),
+                    'reason_code'=>(string)($job['engine_response']??''),
                     'receipt'=>$receipt===null ? null : [
                         'provider_id'=>(string)($receipt['provider_id']??''),
                         'state'=>(string)($receipt['state']??''),
