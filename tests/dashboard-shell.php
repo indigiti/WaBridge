@@ -80,6 +80,7 @@ requireParts($read('public/verification.php'),[
 if(str_contains($read('public/verification.php'),'storage_admin_messages(100)'))
     throw new RuntimeException('Unbounded verification message hydration reintroduced');
 requireParts($read('tests/visual-module-fixture.php'),['moduleContext','moduleFormFit','moduleOverflow'],'Visual module regression');
+requireParts($read('tests/visual-login-fixture.php'),['loginReady','loginCard','loginCentered'],'Premium sign-in visual regression');
 requireParts($read('public/assets/wabridge-design-v6.css'),[
     '.platform-context-link','.platform-form-grid .field>label',
     'grid-template-columns:repeat(2,minmax(0,1fr))'
