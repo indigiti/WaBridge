@@ -78,16 +78,16 @@ def optimize_media_send_buffers(root: Path) -> None:
     )
     for kind, mimetype, media_type in variants:
         old = (
-            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\\n\\n"
-            f"    let upload = client\\n        .upload(\\n"
-            f"            data.clone(),\\n"
+            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\n\n"
+            f"    let upload = client\n        .upload(\n"
+            f"            data.clone(),\n"
             f"            wacore::download::MediaType::{media_type},"
         )
         new = (
-            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\\n"
-            f"    let media_len = data.len();\\n\\n"
-            f"    let upload = client\\n        .upload(\\n"
-            f"            data,\\n"
+            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\n"
+            f"    let media_len = data.len();\n\n"
+            f"    let upload = client\n        .upload(\n"
+            f"            data,\n"
             f"            wacore::download::MediaType::{media_type},"
         )
         source = replace_exact(source, old, new, context=f"{kind} upload without clone")
