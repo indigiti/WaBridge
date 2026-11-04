@@ -69,7 +69,7 @@ requireParts($platform,[
 requireParts($platform,[
     'platform-context','platform-context-link','platform-form-grid','platform-contact-search',
     'platform_session_field($allowedSessions','No opted-in contact is selected',
-    'ui_shell_start($module)','platform_page($collection,$page,10)'
+    'ui_shell_start($module)','platform_page($collection,$page,10,$search)'
 ],'Module UX: contextual actions and server-side page bounds');
 if(str_contains($platform,'platform-hub-subnav'))
     throw new RuntimeException('Crowded duplicate module link strip returned');
