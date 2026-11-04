@@ -22,7 +22,7 @@ final class JsonStore {
     }
     private function blank(): array {
         return ['schema'=>1,'clients'=>[],'jobs'=>[],'quotas'=>[],
-            'events'=>[],'deliveries'=>[],'receipts'=>[],'audit'=>[]];
+            'events'=>[],'deliveries'=>[],'receipts'=>[],'audit'=>[],'timeline'=>[]];
     }
     private function withLock(bool $write, callable $callback): mixed {
         if (is_link($this->lock)) throw new RuntimeException('JSON lock symlink prohibited');
@@ -43,6 +43,7 @@ final class JsonStore {
                     if (!is_array($decoded) || ($decoded['schema']??null)!==1)
                         throw new RuntimeException('Unsupported JSON storage schema');
                     foreach ($state as $name=>$default) {
+                        if($name==='timeline'&&!array_key_exists($name,$decoded))$decoded[$name]=[];
                         if (!array_key_exists($name,$decoded) || gettype($decoded[$name])!==gettype($default))
                             throw new RuntimeException('JSON storage validation failed: '.$name);
                     }
@@ -121,6 +122,14 @@ final class JsonStore {
             $s['quotas'][$key]=$used+1;return true;
         });
     }
+    /** Compact per-job journal with bounded retention, no payload/recipient. */
+    private static function trace(array &$state,string $id,string $status,string $proof):void {
+        $state['timeline'][$id]??=[];
+        $state['timeline'][$id][]=['guid'=>wabridge_guid(),'state'=>$status,
+            'proof'=>$proof,'at'=>time()];
+        if(count($state['timeline'][$id])>20)
+            $state['timeline'][$id]=array_slice($state['timeline'][$id],-20);
+    }
     public function enqueue(array $client,string $sid,string $to,string $body,string $idem): array {
         return $this->mutate(static function(array &$s)use($client,$sid,$to,$body,$idem) {
             $count=0;
@@ -141,6 +150,7 @@ final class JsonStore {
                 'attempts'=>0,'next_at'=>$now,'created_at'=>$now,'updated_at'=>$now,
                 'response_code'=>null,'error'=>null,'engine_response'=>null
             ];
+            self::trace($s,$id,'queued','local_queue');
             return ['id'=>$id,'state'=>'queued','duplicate'=>false];
         });
     }
@@ -159,6 +169,7 @@ final class JsonStore {
             $s['jobs'][$best]['state']='processing';
             $s['jobs'][$best]['attempts']=(int)$job['attempts']+1;
             $s['jobs'][$best]['updated_at']=time();
+            self::trace($s,$best,'processing','worker_claim');
             return $job;
         });
     }
@@ -210,6 +221,7 @@ final class JsonStore {
             $s['jobs'][$id]['response_code']=$code;
             $s['jobs'][$id]['engine_response']=substr($response,0,2000);
             $s['jobs'][$id]['updated_at']=time();
+            self::trace($s,$id,$state,$state==='accepted'?'gateway_accepted':'send_uncertain');
         });
     }
     public function job(string $id,string $clientId): ?array {
@@ -273,9 +285,12 @@ final class JsonStore {
     public function receiptUpdate(string $providerId,string $state,string $eventId): bool {
         return $this->mutate(static function(array &$s)use($providerId,$state,$eventId) {
             if (!isset($s['receipts'][$providerId])) return false;
+            $previous=(string)$s['receipts'][$providerId]['state'];
             $s['receipts'][$providerId]['state']=$state;
             $s['receipts'][$providerId]['source_event_id']=$eventId;
             $s['receipts'][$providerId]['observed_at']=time();
+            if($state!==$previous)
+                self::trace($s,(string)$s['receipts'][$providerId]['job_id'],$state,'verified_provider_receipt');
             return true;
         });
     }
@@ -362,6 +377,7 @@ final class JsonStore {
                 foreach ($s['deliveries'] as $key=>$delivery) if ($delivery['event_id']===$id) unset($s['deliveries'][$key]);
             }
             foreach ($s['receipts'] as $id=>$r) if (!isset($s['jobs'][$r['job_id']])) unset($s['receipts'][$id]);
+            foreach ($s['timeline'] as $id=>$events) if (!isset($s['jobs'][$id])) unset($s['timeline'][$id]);
             foreach ($s['quotas'] as $key=>$unused) if ((int)explode('|',$key)[1]<intdiv($now,60)-120) unset($s['quotas'][$key]);
         });
     }
@@ -413,6 +429,7 @@ final class JsonStore {
             $state=$this->blank();
             foreach (['clients','jobs','quotas','events','deliveries','receipts','audit'] as $key)
                 $state[$key]=$snapshot[$key];
+            if(isset($snapshot['timeline'])&&is_array($snapshot['timeline']))$state['timeline']=$snapshot['timeline'];
             if (count($state['jobs'])>4000 || count($state['clients'])>100 ||
                 count($state['events'])>500 || count($state['deliveries'])>1000 ||
                 count($state['audit'])>500) throw new RuntimeException('Migration exceeds JSON test-mode limits');

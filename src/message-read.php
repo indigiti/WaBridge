@@ -108,7 +108,8 @@ function storage_message_detail(string $id):?array {
 function storage_message_timeline(string $id):array {
     if(!valid_job_id($id))return [];
     $db=store();
-    if($db instanceof JsonStore)return [];
+    if($db instanceof JsonStore)
+        return $db->read(static fn(array $s):array=>array_slice((array)($s['timeline'][$id]??[]),-40));
     $stmt=$db->prepare('SELECT guid,state,proof,at FROM message_timeline WHERE job_id=? ORDER BY seq DESC LIMIT 40');
     $stmt->execute([$id]);
     return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));

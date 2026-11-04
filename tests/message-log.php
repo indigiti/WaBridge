@@ -39,6 +39,10 @@ ensure(message_log_effective_status($after[0])==='accepted','HTTP 200 must not i
 ensure(update_receipt_from_event($db,'event-test-001',['message_id'=>'unmatched','status'=>'delivered'])===false,'unknown provider ID not matched');
 ensure(update_receipt_from_event($db,'event-test-002',['message_id'=>'provider-message-test','status'=>'delivered'])===true,'delivery must match provider ID');
 ensure(message_log_effective_status(storage_admin_messages(20)[0])==='delivered','verified delivery');
+$timeline=storage_message_timeline($queued['id']);
+ensure(array_column($timeline,'state')===['queued','processing','accepted','delivered'],
+    'Real lifecycle transitions must be recorded without fabrication');
+foreach($timeline as $entry)ensure(valid_job_id((string)$entry['guid']),'Lifecycle event must have GUID');
 $failed=enqueue_message($db,$client,'test-01','919876543210','Other message','message-log-test-02');
 $r=process_next_message($db,static fn()=>['http'=>503,'data'=>['error'=>'upstream']]);
 ensure($r['state']==='needs_review' && $r['id']===$failed['id'],'gateway error needs review');
