@@ -87,6 +87,17 @@ function permitted_session(string $sid): bool {
     $allowed = config()['allowed_sessions'] ?? [];
     return !$allowed || in_array($sid, $allowed, true);
 }
+/**
+ * Fail fast on read-only health/listing requests when Rust is degraded.
+ * Preserve 18 seconds for real sends and provider credential exchanges.
+ * Timed-out sends remain uncertain and must never be auto-retried.
+ */
+function gateway_request_timeout(string $method,string $path):int {
+    if($method!=='GET')return 18;
+    if(in_array($path,['/livez','/readyz'],true))return 3;
+    if(str_starts_with($path,'/api/v1/sessions'))return 5;
+    return 8;
+}
 function gateway(string $method, string $path, ?array $payload = null): array {
     $conf = config();
     if (empty($conf['gateway_token']) || !is_string($conf['gateway_token'])) {
@@ -105,10 +116,11 @@ function gateway(string $method, string $path, ?array $payload = null): array {
     if ($ch === false) throw new RuntimeException('cURL unavailable');
     $headers = ['Authorization: Bearer ' . $conf['gateway_token'], 'Accept: application/json'];
     if ($payload !== null) $headers[] = 'Content-Type: application/json';
+    $timeout=gateway_request_timeout($method,$path);
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => $headers, CURLOPT_CONNECTTIMEOUT => 3,
-        CURLOPT_TIMEOUT => 18, CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_HTTPHEADER => $headers, CURLOPT_CONNECTTIMEOUT => min(3,$timeout),
+        CURLOPT_TIMEOUT => $timeout, CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0, CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
     ]);
     if ($payload !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_THROW_ON_ERROR));
