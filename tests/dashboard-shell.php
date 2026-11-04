@@ -60,7 +60,7 @@ requireParts($read('tools/build-assets.php'),[
 requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href,'],'Accessible navigation');
 requireParts($msg,[
     'admin_authenticated()','assert_csrf()','process_next_message',
-    'storage_admin_messages','message_log_effective_status','escape(',
+    'storage_message_page','message_log_effective_status','escape(',
     "ui_shell_start('messages')",'wabridge-ui-v6.css'
 ],'Message log');
 requireParts($routes,[
