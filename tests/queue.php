@@ -52,6 +52,8 @@ complete_job($db,$job1['id'],'accepted',200,'{}');
 $q=$db->prepare('SELECT state FROM jobs WHERE id=?');
 $q->execute([$job1['id']]);
 eq($q->fetchColumn(),'accepted','Completed job state');
+eq(array_column(storage_message_timeline($job1['id']),'state'),
+    ['queued','processing','accepted'],'SQLite event journal records actual transitions');
 $secret=rtrim(strtr(base64_encode(random_bytes(32)),'+/','-_'),'=');
 $hash=hash('sha256',$secret);
 $s=$db->prepare('INSERT INTO api_clients(id,token_sha256,sessions_json,per_minute,created_at) VALUES(?,?,?,?,?)');

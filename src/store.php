@@ -56,6 +56,16 @@ function store(): PDO|JsonStore {
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_ready ON jobs(state,next_at)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_created ON jobs(created_at DESC,id DESC)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS message_timeline (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      guid TEXT NOT NULL UNIQUE,
+      job_id TEXT NOT NULL,
+      state TEXT NOT NULL,
+      proof TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_message_timeline_job_seq ON message_timeline(job_id,seq)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS message_receipts (
       job_id TEXT NOT NULL, provider_id TEXT NOT NULL UNIQUE,
       state TEXT NOT NULL, observed_at INTEGER NOT NULL, source_event_id TEXT,
@@ -171,6 +181,10 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         if (!hash_equals((string)$s->fetchColumn(), $body)) throw new InvalidArgumentException('Idempotency key reused with different message');
     }
     $result=['id'=>$row['id'],'state'=>$row['state'],'duplicate'=>$row['id'] !== $id];
+    if(!$result['duplicate']) {
+        $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+        $trace->execute([wabridge_guid(),$id,'queued','local_queue',time()]);
+    }
     $db->commit();
     return $result;
     } catch (Throwable $e) {
@@ -202,6 +216,10 @@ function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
             $update=$db->prepare("UPDATE jobs SET state='processing',attempts=attempts+1,updated_at=? WHERE id=? AND state='queued'");
             $update->execute([$now,$job['id']]);
             if ($update->rowCount()!==1)$job=null;
+            else {
+                $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+                $trace->execute([wabridge_guid(),(string)$job['id'],'processing','worker_claim',time()]);
+            }
         }
         $db->commit();
         return $job?:null;
@@ -213,8 +231,21 @@ function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
 function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, string $response = ''): void {
     storage_operational_guard();
     if ($db instanceof JsonStore) { $db->complete($id,$state,$code,$response);return; }
-    $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
-    $s->execute([$state,$code,substr($response,0,2000),time(),$id]);
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $now=time();
+        $s=$db->prepare('UPDATE jobs SET state=?,response_code=?,engine_response=?,updated_at=? WHERE id=?');
+        $s->execute([$state,$code,substr($response,0,2000),$now,$id]);
+        if($s->rowCount()===1) {
+            $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+            $proof=$state==='accepted'?'gateway_accepted':'send_uncertain';
+            $trace->execute([wabridge_guid(),$id,$state,$proof,$now]);
+        }
+        $db->commit();
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
 }
 
 function audit_event(string $event,string $actor,string $target='',array $details=[]): void {
@@ -236,9 +267,25 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
     $map=['sent'=>'sent','delivered'=>'delivered','read'=>'read','played'=>'read','failed'=>'failed'];
     if ($messageId==='' || !isset($map[$rawState])) return false;
     if ($db instanceof JsonStore) return $db->receiptUpdate($messageId,$map[$rawState],$eventId);
-    $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
-    $stmt->execute([$map[$rawState],time(),$eventId,$messageId]);
-    return $stmt->rowCount()===1;
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $select=$db->prepare('SELECT job_id,state FROM message_receipts WHERE provider_id=? LIMIT 1');
+        $select->execute([$messageId]);
+        $match=$select->fetch();
+        if(!$match){$db->commit();return false;}
+        $next=$map[$rawState];$now=time();
+        $stmt=$db->prepare('UPDATE message_receipts SET state=?,observed_at=?,source_event_id=? WHERE provider_id=?');
+        $stmt->execute([$next,$now,$eventId,$messageId]);
+        if($next!==(string)$match['state']) {
+            $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+            $trace->execute([wabridge_guid(),(string)$match['job_id'],$next,'verified_provider_receipt',$now]);
+        }
+        $db->commit();
+        return true;
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
 }
 
 require_once __DIR__.'/storage-services.php';

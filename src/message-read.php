@@ -103,3 +103,13 @@ function storage_message_detail(string $id):?array {
     $page=storage_message_page(1,1,'','',$id);
     return $page['rows'][0]??null;
 }
+
+/** Per-message event journal: exact indexed job lookup, bounded to 40 rows. */
+function storage_message_timeline(string $id):array {
+    if(!valid_job_id($id))return [];
+    $db=store();
+    if($db instanceof JsonStore)return [];
+    $stmt=$db->prepare('SELECT guid,state,proof,at FROM message_timeline WHERE job_id=? ORDER BY seq DESC LIMIT 40');
+    $stmt->execute([$id]);
+    return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
