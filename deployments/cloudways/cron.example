@@ -1,7 +1,17 @@
-# Cloudways PHP application: enqueue through HTTPS, process through CLI every minute.
-# Replace /home/master/applications/<APP>/ and the PHP binary path.
-# Runs at most 40 queued jobs per minute. Do not start a server daemon through a web route.
-* * * * * /usr/bin/php /home/master/applications/<APP>/cli/worker.php 40 >> /home/master/applications/<APP>/runtime/worker.log 2>&1
+# WaBridge deployed by DigiOps to a Cloudways PHP application.
+# Replace <CLOUDWAYS_USER> and <APP> with the actual account and application folder.
+# Replace /usr/bin/php with the PHP CLI path used by that Cloudways application.
+# PUBLIC files:  .../public_html/wabridge/
+# PRIVATE code: .../private_html/wabridge/  (never exposed over HTTP)
+#
+# Process up to 40 queued messages each minute. The Rust gateway being ready
+# does NOT schedule this PHP worker. An accepted send is not delivered proof.
+# Message bodies, phone numbers and credentials must not be logged.
+* * * * * /usr/bin/php /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/cli/worker.php 40 >> /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/runtime/worker.log 2>&1
 
-# Process signed outbound event callbacks. Each invocation is bounded.
-* * * * * /usr/bin/php /home/master/applications/<APP>/cli/webhooks.php 15 >> /home/master/applications/<APP>/runtime/events.log 2>&1
+# Process signed outbound webhook callbacks; each invocation is bounded.
+* * * * * /usr/bin/php /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/cli/webhooks.php 15 >> /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/runtime/events.log 2>&1
+
+# Verify last scheduled run from authenticated WaBridge > Message activity
+# (Automatic worker panel). "Not detected"/"Stale" indicates that cron
+# has not been observed recently; it is not evidence of WhatsApp delivery.
