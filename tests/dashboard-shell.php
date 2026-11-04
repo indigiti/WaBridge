@@ -14,6 +14,7 @@ $js=$read('public/assets/wabridge-console-v3.js');
 $routes=$read('public/.htaccess');
 $msg=$read('public/messages.php');
 $platform=$read('public/platform.php');
+$platform=$read('public/platform.php');
 function requireParts(string $data,array $parts,string $area):void {
     foreach($parts as $part)
         if(!str_contains($data,$part))throw new RuntimeException($area.' missing '.$part);
@@ -66,6 +67,17 @@ requireParts($platform,[
   'platform_page($collection,$page,10)','ui_shell_start($module)',
   'platform_schedule_nonce','platform_media_nonce','csrf()'
 ],'Product module routes, CSRF and bounded loads');
+requireParts($platform,[
+    'platform-context','platform-context-link','platform-form-grid',
+    'ui_shell_start($module)','platform_page($collection,$page,10)'
+],'Module UX: contextual actions and server-side page bounds');
+if(str_contains($platform,'platform-hub-subnav'))
+    throw new RuntimeException('Crowded duplicate module link strip returned');
+requireParts($read('src/ui-shell.php'),['function ui_asset_version','/build/release.json'],'Versioned assets');
+requireParts($read('public/assets/wabridge-design-v6.css'),[
+    '.platform-context-link','.platform-form-grid .field>label',
+    'grid-template-columns:repeat(2,minmax(0,1fr))'
+],'Module premium form/spacing');
 requireParts($msg,[
     'admin_authenticated()','assert_csrf()','process_next_message',
     'storage_message_page','message_log_effective_status','escape(',

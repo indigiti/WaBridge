@@ -163,8 +163,8 @@ if ($authed) {
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#f3f6fc">
   <title>WaBridge — Control Center</title>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
-  <?php if ($authed): ?><script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script><?php endif; ?>
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=<?= escape(ui_asset_version()) ?>">
+  <?php if ($authed): ?><script src="/wabridge/assets/wabridge-console-v3.js?v=<?= escape(ui_asset_version()) ?>" defer></script><?php endif; ?>
 </head>
 <body class="<?= $authed ? 'dashboard-page page-view-'.escape($view) : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>

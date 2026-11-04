@@ -379,12 +379,23 @@ tbody tr:hover td{background:rgba(255,255,255,.52)}
 }
 
 /* P1–P5 modular console — styles are appended to the existing single bundle. */
-.platform-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.platform-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;align-items:start}
 .platform-form-grid .field{min-width:0}
 .platform-form-grid .field.full{grid-column:1/-1}
-.platform-hub-subnav{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 24px}
-.platform-hub-subnav a{display:inline-flex;align-items:center;padding:8px 12px;border-radius:12px;border:1px solid rgba(110,130,170,.17);background:rgba(255,255,255,.4);color:inherit;text-decoration:none;font-size:13px}
-.platform-hub-subnav a[aria-current=page]{font-weight:700;background:rgba(190,210,235,.45)}
+.platform-form-grid .field>label{display:flex;flex-direction:column;align-items:stretch;gap:9px;font-size:13px;line-height:1.55;letter-spacing:.01em;color:#3e5075}
+.platform-form-grid .field>label>input:not([type=checkbox]),.platform-form-grid .field>label>textarea,.platform-form-grid .field>label>select{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.platform-form-grid .field.full>label:has(input[type=checkbox]){display:flex;flex-direction:row;gap:12px;align-items:start;line-height:1.5}
+.platform-form-grid .field.full>label>input[type=checkbox]{height:17px;width:17px;flex:0 0 17px;margin:3px 0}
+.platform-context{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;min-height:46px;margin:0 0 23px;padding:8px 0;border-top:1px solid rgba(140,160,195,.25);border-bottom:1px solid rgba(140,160,195,.25)}
+.platform-context-label{font-size:12px;font-weight:750;color:#677ca7;letter-spacing:.09em;text-transform:uppercase}
+.platform-context-links{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.platform-context-link{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;padding:8px 12px;border:1px solid rgba(145,166,205,.35);border-radius:11px;background:rgba(255,255,255,.55);color:#3f588c!important;text-decoration:none!important;font-size:12px;font-weight:650;transition:background .15s,border-color .15s}
+.platform-context-link:hover,.platform-context-link:focus-visible{background:#fff;border-color:rgba(100,125,185,.7);outline-offset:3px}
+.platform-context-link:after{content:"›";font-size:17px;line-height:12px}
+.platform-panels .glass-panel{min-width:0}
+.platform-panels .glass-panel .panel-heading{margin-bottom:18px}
+.platform-panels .glass-panel>.platform-help{margin:14px 0}
+.platform-panels .table-scroll{max-width:100%}
 .platform-panels{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .platform-list-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .platform-help{font-size:13px;line-height:1.55;opacity:.8}

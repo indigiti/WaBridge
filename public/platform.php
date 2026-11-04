@@ -167,9 +167,32 @@ try{
 <?php ui_breadcrumb('WaBridge platform',$pages[$module][0]); ?>
 <div class="workspace-top"><div><div class="eyebrow">PRODUCT PLATFORM / <?= escape(strtoupper($module)) ?></div><h1><?= escape($pages[$module][0]) ?></h1><p class="lead"><?= escape($pages[$module][1]) ?></p></div>
 <a class="button button-ghost" href="/wabridge/<?= escape($module) ?>">Refresh</a></div>
-<nav class="platform-hub-subnav" aria-label="Product modules">
-<?php foreach($pages as $slug=>$entry):?><a href="/wabridge/<?= escape($slug) ?>" <?= $slug===$module?'aria-current="page"':'' ?>><?= escape($entry[0]) ?></a><?php endforeach;?>
-</nav>
+<div class="platform-context" aria-label="Related actions">
+  <span class="platform-context-label"><?= escape(match($module) {
+    'contacts','templates','schedules','media'=>'Messaging tools',
+    'automation'=>'Automation workspace',
+    'developer-tools'=>'Developer workspace',
+    'security-center'=>'Operations center',
+    'workspaces','cloud-api'=>'Administration',
+    default=>'WaBridge',
+  }) ?></span>
+  <div class="platform-context-links">
+  <?php foreach(match($module) {
+    'contacts'=>[['templates','Templates'],['schedules','Schedules']],
+    'templates'=>[['contacts','Contacts'],['schedules','Schedule message']],
+    'schedules'=>[['contacts','Contacts'],['templates','Templates']],
+    'media'=>[['contacts','Manage contacts'],['messages','Delivery activity']],
+    'automation'=>[['messages','Message activity']],
+    'developer-tools'=>[['webhook-events','Webhook history']],
+    'security-center'=>[['diagnostics','Diagnostics'],['audit','Audit log']],
+    'workspaces'=>[['security-center','Security']],
+    'cloud-api'=>[['security-center','Security'],['contacts','Contacts']],
+    default=>[],
+  } as [$target,$label]): ?>
+    <a class="platform-context-link" href="/wabridge/<?= escape($target) ?>"><?= escape($label) ?></a>
+  <?php endforeach;?>
+  </div>
+</div>
 <?php if($notice!==''):?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif;?>
 <?php if($error!==''):?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif;?>
 <div class="platform-panels">
