@@ -45,4 +45,48 @@ ensure(!isset($recent[0]['body']),'no plaintext in history');
 $failureRow=null;
 foreach ($recent as $entry) if ($entry['id']===$failed['id']) $failureRow=$entry;
 ensure($failureRow!==null && message_log_effective_status($failureRow)==='needs_review','uncertain outcome');
+
+$offline=enqueue_message($db,$client,'test-01','919876543210','Queued while offline','message-log-test-offline');
+$target=enqueue_message($db,$client,'test-01','919876543210','Targeted browser send','message-log-test-targeted');
+$probed=[];
+$blocked=process_next_message($db,
+    static function()use(&$probed):array{$probed[]='sent';return ['http'=>200,'data'=>['message_id'=>'must-not-send']];},
+    $offline['id'],
+    static fn(string $sid):array => ['http'=>200,'is_logged_in'=>true,'socket_alive'=>false]
+);
+ensure($blocked!==null&&$blocked['state']==='blocked','offline session must block before claim');
+ensure($probed===[],'offline session must never invoke sender');
+$queuedStill=storage_queued_job($db,$offline['id']);
+ensure($queuedStill!==null&&$queuedStill['session_id']==='test-01','offline job must remain queued');
+$sentTarget=process_next_message($db,
+    static fn()=>['http'=>200,'data'=>['status'=>'sent','message_id'=>'provider-target-001']],
+    $target['id'],
+    static fn():array=>['http'=>200,'is_logged_in'=>true,'socket_alive'=>true]
+);
+ensure($sentTarget!==null&&$sentTarget['id']===$target['id']&&$sentTarget['state']==='accepted',
+   'browser operation must dispatch exactly its own job');
+ensure(storage_queued_job($db,$offline['id'])!==null,'targeted send must not claim older offline job');
+$persisted=storage_admin_messages(20);
+$targetRow=null;
+foreach($persisted as $row) if($row['id']===$target['id'])$targetRow=$row;
+ensure($targetRow!==null&&$targetRow['receipt']['provider_id']==='provider-target-001',
+  'selected send provider ID not persisted');
+$unexpected=enqueue_message($db,$client,'test-01','919876543210','Untraceable upstream send','message-log-test-scheduled');
+$result=process_next_message($db,static fn()=>[
+    'http'=>200,'data'=>['status'=>'pending','schedule_id'=>'future-job']
+],$unexpected['id']);
+ensure($result['state']==='needs_review'&&$result['reason']==='unexpected_scheduled_response',
+  'unexpected deferred response must remain uncertain');
+$storedUncertain=null;
+foreach(storage_admin_messages(20) as $row)if($row['id']===$unexpected['id'])$storedUncertain=$row;
+ensure($storedUncertain!==null &&
+       message_log_reason_code($storedUncertain)==='unexpected_scheduled_response',
+       'reason code must be retained by JSON backend');
+ensure(str_contains(message_log_reason_text('gateway_http_503'),'Gateway'),
+  'rejected send must have actionable explanation');
+ensure(message_log_reason_code(['reason_code'=>'Bearer SECRET abc'])==='',
+  'untrusted raw gateway error must never leak through admin UI');
+ensure(message_log_effective_status($storedUncertain)==='needs_review',
+  'unknown gateway send must not appear delivered');
+
 echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";
