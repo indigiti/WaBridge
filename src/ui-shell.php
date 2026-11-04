@@ -31,7 +31,10 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         'messaging'=>'Send message','messages'=>'Message activity','reports'=>'Reports',
         'diagnostics'=>'Diagnostics','performance'=>'Performance','verification'=>'Verification',
         'api-applications'=>'API applications','gateway'=>'Gateway settings',
-        'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log','trace'=>'Message trace'
+        'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log','trace'=>'Message trace',
+        'contacts'=>'Contacts','templates'=>'Templates','schedules'=>'Schedules','media'=>'Media messages',
+        'automation'=>'Automation','developer-tools'=>'API tools','security-center'=>'Security',
+        'workspaces'=>'Workspaces','cloud-api'=>'Official Cloud API'
     ];
     if(!isset($pageLabels[$page]))throw new InvalidArgumentException('Unknown console page');
     if(!admin_authenticated())throw new RuntimeException('Console requires administrator authentication');
@@ -48,9 +51,25 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         ['devices','/wabridge/devices','devices'],
         ['messaging','/wabridge/messaging','messaging'],
         ['messages','/wabridge/messages','messages'],
+        ['media','/wabridge/media','messaging'],
       ],
-      'Developer'=>[['api-applications','/wabridge/api-applications','api-applications']],
-      'System'=>[['gateway','/wabridge/gateway','gateway'],['storage','/wabridge/storage','storage']],
+      'Contacts & Scheduling'=>[
+        ['contacts','/wabridge/contacts','devices'],
+        ['templates','/wabridge/templates','messages'],
+        ['schedules','/wabridge/schedules','messaging'],
+      ],
+      'Automation'=>[['automation','/wabridge/automation','messages']],
+      'Developer'=>[
+        ['api-applications','/wabridge/api-applications','api-applications'],
+        ['developer-tools','/wabridge/developer-tools','api-applications'],
+      ],
+      'Administration'=>[
+        ['gateway','/wabridge/gateway','gateway'],
+        ['storage','/wabridge/storage','storage'],
+        ['cloud-api','/wabridge/cloud-api','gateway'],
+        ['security-center','/wabridge/security-center','diagnostics'],
+        ['workspaces','/wabridge/workspaces','overview'],
+      ],
     ];
 ?>
 <div class="site-shell">

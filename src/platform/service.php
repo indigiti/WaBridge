@@ -28,6 +28,17 @@ function platform_contact_save(string $name,string $phone,string $evidence,bool 
         return $row;
     });
 }
+function platform_contact_revoke(string $id):bool {
+    if(!valid_job_id($id))throw new InvalidArgumentException('Invalid contact');
+    return platform_state_io(true,static function(array &$s)use($id):bool{
+        if(!isset($s['contacts'][$id]))return false;
+        $s['contacts'][$id]['consented']=false;
+        $s['contacts'][$id]['consent_evidence']='withdrawn';
+        $s['contacts'][$id]['consent_at']=null;
+        $s['contacts'][$id]['updated_at']=time();
+        return true;
+    });
+}
 function platform_contact_consented(string $phone):bool {
     $phone=platform_phone($phone);
     return platform_state_io(false,static function(array $s)use($phone):bool {
