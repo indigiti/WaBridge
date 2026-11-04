@@ -9,7 +9,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
-if (!admin_authenticated()) { http_response_code(403);exit('Sign in to WaBridge first.'); }
+require_admin_html_page();
 $notice=(string)($_SESSION['storage_flash']??'');
 unset($_SESSION['storage_flash']);
 $error='';

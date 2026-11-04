@@ -10,7 +10,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; form-action 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'");
-if (!admin_authenticated()) { http_response_code(403); exit('Sign in to WaBridge first.'); }
+require_admin_html_page();
 $notice=''; $error='';
 if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
     try {

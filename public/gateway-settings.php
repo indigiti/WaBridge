@@ -10,10 +10,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self'");
-if (!admin_authenticated()) {
-    http_response_code(403);
-    exit('Sign in to WaBridge before managing gateway settings.');
-}
+require_admin_html_page();
 $notice = (string)($_SESSION['gateway_settings_notice'] ?? '');
 unset($_SESSION['gateway_settings_notice']);
 $error = '';

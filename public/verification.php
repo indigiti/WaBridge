@@ -12,7 +12,7 @@ header('X-Frame-Options: DENY');
 header('X-Robots-Tag: noindex, nofollow');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
-if (!admin_authenticated()) {http_response_code(403);exit('Sign in to WaBridge first.');}
+require_admin_html_page();
 $storage=false;$gateway=['ready'=>false,'state'=>'unreachable','http'=>null];
 $counts=[];$error='';$worker=worker_health_read();$watchdog=watchdog_read();
 try{
