@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-processor.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
@@ -55,9 +56,32 @@ try {
                     'to'=>$_POST['to'] ?? '',
                     'text'=>$_POST['text'] ?? ''
                 ]);
-                $job = enqueue_message(store(), ['id'=>'admin','sessions'=>[$sid],'limit'=>10], $sid, $to, $text, 'admin-'.bin2hex(random_bytes(12)));
+                // Test sends are browser-operated, so no CLI worker is required.
+                // Do not queue a new message against an offline linked device.
+                $sessionStatus=session_state($sid);
+                if(($sessionStatus['http']??null)!==200 ||
+                   empty($sessionStatus['is_logged_in']) ||
+                   empty($sessionStatus['socket_alive'])) {
+                    throw new InvalidArgumentException(
+                        'WhatsApp session '.$sid.' is not actively connected. Open Linked sessions and reconnect it. No message was queued.'
+                    );
+                }
+                $job=enqueue_message(store(),['id'=>'admin','sessions'=>[$sid],'limit'=>10],
+                    $sid,$to,$text,'admin-'.bin2hex(random_bytes(12)));
                 $queuedJobId=(string)$job['id'];
-                $notice = 'Message queued (ID '.$job['id'].'). Open Message activity to process this job or review its status; delivery is not confirmed.';
+                // Atomically process ONLY this job. Previously this action
+                // stopped at "queued" until an unrelated CLI worker ran.
+                $sent=process_next_message(store(),null,$queuedJobId);
+                if($sent===null) {
+                    $notice='Message '.$queuedJobId.' is being processed by another worker; check Message activity.';
+                } elseif($sent['state']==='accepted') {
+                    $notice='Message '.$queuedJobId.' accepted by Waxum (HTTP '.$sent['http'].'). WhatsApp delivery is not yet confirmed.';
+                } elseif($sent['state']==='blocked') {
+                    $notice='Message '.$queuedJobId.' remains queued: the WhatsApp session is not connected. Nothing was sent.';
+                } else {
+                    $error='Message '.$queuedJobId.' requires review (HTTP '.$sent['http'].'). '.
+                        message_log_reason_text((string)($sent['reason']??'')).'. Do not retry before checking the recipient.';
+                }
             } elseif ($action === 'create') {
                 // Match Waxum's session creation fields to the installed engine version.
                 $name = trim((string)($_POST['session_name'] ?? ''));
@@ -238,13 +262,13 @@ if ($authed) {
         <?php if ($view==='messaging'): ?>
         <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
           <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true"><?= ui_icon('messaging') ?></span></div>
-          <p class="panel-help">Queue a message through a configured WhatsApp session. Submission is not proof of delivery.</p>
+          <p class="panel-help">Send one consented test message immediately through an actively connected WhatsApp session. Gateway acceptance is not proof of delivery; check Message activity for any verified receipt.</p>
           <form method="post" class="form-stack">
             <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
             <div class="field"><label for="sid">Session ID</label><input id="sid" name="session_id" maxlength="64" placeholder="e.g. school-01" required></div>
             <div class="field"><label for="to">Recipient number</label><input id="to" name="to" maxlength="15" inputmode="numeric" placeholder="Country code + number, digits only" required></div>
             <div class="field"><label for="txt">Message</label><textarea id="txt" name="text" rows="4" maxlength="2000" placeholder="Write your message..." required></textarea></div>
-            <button type="submit" class="button button-primary">Queue message <span aria-hidden="true">→</span></button>
+            <button type="submit" class="button button-primary">Send test message <span aria-hidden="true">→</span></button>
           </form>
         </section>
         <?php endif; ?>
