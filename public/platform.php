@@ -27,6 +27,9 @@ $pages=[
 $module=(string)($_GET['module']??'contacts');
 if(!isset($pages[$module])){http_response_code(404);exit('Module unavailable');}
 $page=max(1,min(1000,(int)($_GET['page']??1)));
+$search=$module==='contacts'?trim((string)($_GET['q']??'')):'';
+$selectedContactId=(string)($_GET['contact']??'');
+$selectedTemplateId=(string)($_GET['template']??'');
 $notice='';$error='';$preview=[];$mediaOutcome=null;$aiDraft='';
 try{
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
@@ -151,12 +154,27 @@ $collection=match($module){
 $listing=['rows'=>[],'page'=>$page,'has_next'=>false];
 $contacts=[];$templates=[];
 try{
-    if($collection!==null)$listing=platform_page($collection,$page,10);
+    if($collection!==null)$listing=platform_page($collection,$page,10,$search);
     if(in_array($module,['schedules','media','cloud-api'],true)){
         $contacts=platform_page('contacts',1,25)['rows'];
         $contacts=array_values(array_filter($contacts,static fn(array $r):bool=>($r['consented']??false)===true));
+        // A contact selected from any page of Contacts must remain selectable,
+        // even if outside the most-recent-25 picker. Never hydrate all 500.
+        if(valid_job_id($selectedContactId)){
+            $chosen=platform_find('contacts',$selectedContactId);
+            if($chosen && ($chosen['consented']??false)===true &&
+               !in_array($selectedContactId,array_column($contacts,'id'),true))
+                array_unshift($contacts,$chosen);
+        }
     }
-    if($module==='schedules')$templates=platform_page('templates',1,25)['rows'];
+    if($module==='schedules'){
+        $templates=platform_page('templates',1,25)['rows'];
+        if(valid_job_id($selectedTemplateId)){
+            $chosen=platform_find('templates',$selectedTemplateId);
+            if($chosen && !in_array($selectedTemplateId,array_column($templates,'id'),true))
+                array_unshift($templates,$chosen);
+        }
+    }
 }catch(Throwable $e){$error='Cannot load module records. Review private storage.';}
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -220,8 +238,9 @@ try{
 <form method="post" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="schedule_create">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_schedule_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
-<div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?></option><?php endforeach;?></select></label></div>
+<div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedContactId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label>
+<small class="platform-help">Showing recent contacts. <a href="/wabridge/contacts">Search all contacts</a> to select an older record.</small></div>
+<div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedTemplateId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?></option><?php endforeach;?></select></label><small class="platform-help">Showing recent templates. <a href="/wabridge/templates">Choose an older template</a> from its record.</small></div>
 <div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>
 <div class="field"><label>Send time — UTC<input type="datetime-local" name="send_at" required></label></div>
 <div class="field full platform-help">1 minute to 30 days in advance. Requires the separate PHP CLI worker. Consent is checked again at dispatch.</div>
@@ -321,6 +340,14 @@ try{
 <?php endif;?>
 <?php if($collection!==null):?>
 <section class="glass-panel workspace-section"><div class="panel-heading platform-list-header"><div><div class="eyebrow">BOUNDed RECORDS</div><h2><?= escape($pages[$module][0]) ?> history</h2></div><span class="subtle-tag">Page <?= $page ?> · 10 records</span></div>
+<?php if($module==='contacts'):?>
+<form method="get" action="/wabridge/contacts" class="platform-search" role="search">
+<label for="platform-contact-search">Search by name or last 4 digits</label>
+<input id="platform-contact-search" name="q" value="<?= escape($search) ?>" maxlength="50" placeholder="Contact name or 7890">
+<button type="submit" class="button button-ghost button-small">Search</button>
+<?php if($search!==''):?><a class="button button-ghost button-small" href="/wabridge/contacts">Clear</a><?php endif;?>
+</form>
+<?php endif;?>
 <div class="table-scroll"><table class="platform-table"><thead><tr><th>Reference</th><th>Details</th><th>Created (UTC)</th><th>State / action</th></tr></thead><tbody>
 <?php foreach($listing['rows'] as $row):?>
 <tr><td><code><?= escape((string)$row['id']) ?></code></td>
@@ -333,7 +360,12 @@ try{
 <td><?= escape(gmdate('Y-m-d H:i',(int)$row['created_at'])) ?></td>
 <td><?php if($module==='contacts'):?>
 <?= !empty($row['consented'])?'Consented':'Opted out' ?>
-<?php if(!empty($row['consented'])):?><form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="contact_revoke"><input type="hidden" name="contact_id" value="<?= escape($row['id']) ?>"><button type="submit" class="button button-ghost button-small">Withdraw consent</button></form><?php endif;?>
+<?php if(!empty($row['consented'])):?>
+<div class="platform-row-actions"><a href="/wabridge/media?contact=<?= rawurlencode((string)$row['id']) ?>">Send media</a>
+<a href="/wabridge/schedules?contact=<?= rawurlencode((string)$row['id']) ?>">Schedule</a></div>
+<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="contact_revoke"><input type="hidden" name="contact_id" value="<?= escape($row['id']) ?>"><button type="submit" class="button button-ghost button-small">Withdraw consent</button></form><?php endif;?>
+<?php elseif($module==='templates'):?>
+<a href="/wabridge/schedules?template=<?= rawurlencode((string)$row['id']) ?>" class="table-link">Schedule with template</a>
 <?php elseif($module==='schedules'):?>
 <?php if(($row['status']??'')==='cancelled'):?>Cancelled
 <?php else:?>
@@ -349,8 +381,8 @@ try{
 <?php endforeach;?>
 <?php if(!$listing['rows']):?><tr><td colspan="4" class="empty-cell">No records available.</td></tr><?php endif;?></tbody></table></div>
 <div class="platform-button-row">
-<?php if($page>1):?><a class="button button-ghost" href="/wabridge/<?= escape($module) ?>?page=<?= $page-1 ?>">Previous</a><?php endif;?>
-<?php if($listing['has_next']):?><a class="button button-primary" href="/wabridge/<?= escape($module) ?>?page=<?= $page+1 ?>">Next</a><?php endif;?>
+<?php if($page>1):?><a class="button button-ghost" href="/wabridge/<?= escape($module) ?>?<?= escape(http_build_query(['page'=>$page-1]+($search!==''?['q'=>$search]:[]),'','&',PHP_QUERY_RFC3986)) ?>">Previous</a><?php endif;?>
+<?php if($listing['has_next']):?><a class="button button-primary" href="/wabridge/<?= escape($module) ?>?<?= escape(http_build_query(['page'=>$page+1]+($search!==''?['q'=>$search]:[]),'','&',PHP_QUERY_RFC3986)) ?>">Next</a><?php endif;?>
 </div></section>
 <?php endif;?>
 </div></main><?php ui_shell_end(); ?></body></html>

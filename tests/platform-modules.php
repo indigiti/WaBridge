@@ -99,6 +99,12 @@ check($cloudMessage['accepted']&&$cloudMessage['delivery']==='unconfirmed','appr
 $raw=(string)file_get_contents($folder.'/state.json');
 check(!str_contains($raw,$secret),'provider credentials never persisted');
 check(count(platform_page('contacts',1,10)['rows'])===1,'bounded pilot query');
+check(count(platform_page('contacts',1,10,'Sample')['rows'])===1,'Search contact name');
+check(count(platform_page('contacts',1,10,'3210')['rows'])===0,'Search filters unknown last-four');
+check(count(platform_page('contacts',1,10,'7890')['rows'])===1,'Search by last four digits');
+try{platform_page('contacts',1,10,'919876543210');
+    throw new RuntimeException('Full phone leaked in contact search URL');
+}catch(InvalidArgumentException $expected){};
 require $root.'/src/platform/webhook-read.php';
 $raw='{"event":"receipt","test":true}';
 storage_event_accept('provider-event-test-00001','unit-session','receipt',$raw,

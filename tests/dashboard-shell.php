@@ -63,11 +63,11 @@ requireParts($platform,[
   'admin_authenticated()','assert_csrf()',
   'platform_contact_save','platform_schedule','platform_media_send',
   'platform_rule_create','platform_workspace_create','platform_cloud_connect',
-  'platform_page($collection,$page,10)','ui_shell_start($module)',
+  'platform_page($collection,$page,10,$search)','ui_shell_start($module)',
   'platform_schedule_nonce','platform_media_nonce','csrf()'
 ],'Product module routes, CSRF and bounded loads');
 requireParts($platform,[
-    'platform-context','platform-context-link','platform-form-grid',
+    'platform-context','platform-context-link','platform-form-grid','platform-contact-search',
     'ui_shell_start($module)','platform_page($collection,$page,10)'
 ],'Module UX: contextual actions and server-side page bounds');
 if(str_contains($platform,'platform-hub-subnav'))
