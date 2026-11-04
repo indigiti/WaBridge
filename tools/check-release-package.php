@@ -20,6 +20,7 @@ $required=[
  'private/src/store.php','private/src/bootstrap.php','private/src/json-store.php',
  'private/src/ui-shell.php','private/src/message-log.php','private/src/message-processor.php',
  'private/src/runtime-metrics.php',
+ 'private/src/worker-health.php',
  'private/src/gateway-provider.php','private/src/gateway-settings.php',
  'private/src/storage-services.php','private/src/storage-migration.php',
  'private/src/waxum-provisioning.php',
