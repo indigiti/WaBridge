@@ -50,6 +50,10 @@ try{
             audit_event('message_template_created','admin',$row['id']);
             $notice='Reusable template saved.';
         }elseif($action==='schedule_create'&&$module==='schedules'){
+            $nonce=(string)($_POST['nonce']??'');
+            if(!hash_equals((string)($_SESSION['platform_schedule_nonce']??''),$nonce)||strlen($nonce)!==48)
+                throw new InvalidArgumentException('Schedule already submitted or expired; refresh before trying again');
+            unset($_SESSION['platform_schedule_nonce']);
             $date=(string)($_POST['send_at']??'');
             if(!preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}\z/D',$date))
                 throw new InvalidArgumentException('Choose an exact UTC date/time');
@@ -184,6 +188,7 @@ try{
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P1 / SCHEDULED QUEUE</div><h2>Schedule one consented text</h2></div></div>
 <form method="post" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="schedule_create">
+<input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_schedule_nonce']??=bin2hex(random_bytes(24))) ?>">
 <div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
 <div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?></option><?php endforeach;?></select></label></div>
 <div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>

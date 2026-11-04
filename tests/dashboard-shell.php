@@ -13,6 +13,7 @@ $css=$read('public/assets/wabridge-design-v6.css');
 $js=$read('public/assets/wabridge-console-v3.js');
 $routes=$read('public/.htaccess');
 $msg=$read('public/messages.php');
+$platform=$read('public/platform.php');
 function requireParts(string $data,array $parts,string $area):void {
     foreach($parts as $part)
         if(!str_contains($data,$part))throw new RuntimeException($area.' missing '.$part);
@@ -58,6 +59,15 @@ requireParts($read('tools/build-assets.php'),[
     'one authored source'
 ],'Unified build');
 requireParts($js,['aria-expanded','localStorage','keydown','sidebar-mobile-open','new URL(href,'],'Accessible navigation');
+requireParts($platform,[
+    'admin_authenticated()','assert_csrf()',
+    'platform_contact_save','platform_schedule','platform_media_send',
+    'platform_rule_create','platform_workspace_create','platform_cloud_connect',
+    'platform_page($collection,$page,10)','ui_shell_start($module)',
+    "hash_equals((string)($_SESSION['platform_schedule_nonce']",
+    "hash_equals((string)($_SESSION['platform_media_nonce']",
+    'csrf()'
+],'Product module routing, CSRF, idempotency and bounded loading');
 requireParts($msg,[
     'admin_authenticated()','assert_csrf()','process_next_message',
     'storage_message_page','message_log_effective_status','escape(',
@@ -65,7 +75,86 @@ requireParts($msg,[
 ],'Message log');
 requireParts($routes,[
     'RewriteEngine On','RewriteBase /wabridge/',
-    'RewriteRule ^messages/?$','RewriteRule ^gateway/?$',
+    'RewriteRule ^messages/?
+    'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
+    'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
+    'RewriteRule ^performance/?$','RewriteRule ^verification/?$',
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
+],'Cloudways routes');
+if(!str_contains($routes,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Legacy redirects could lose POST data');
+if(str_contains($routes,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API endpoints incorrectly rewritten');
+foreach([
+  'public/storage-settings.php'=>"ui_shell_start('storage')",
+  'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+  'public/qr.php'=>"ui_shell_start('qr',",
+  'public/reports-view.php'=>"ui_shell_start('reports')",
+  'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',",
+  'public/performance.php'=>"ui_shell_start('performance')",
+  'public/verification.php'=>"ui_shell_start('verification',"
+] as $file=>$fragment) {
+    requireParts($read($file),[$fragment,'ui_shell_end()','ui_breadcrumb('],$file);
+}
+foreach(['public/reports.php','public/diagnostics.php'] as $file)
+    requireParts($read($file),['application/json','admin_authenticated()'],$file.' JSON compatibility');
+echo "Single-source premium UI v6, SVG navigation, focused overview, safe API and responsive glass layout: PASS\n";
+,'RewriteRule ^gateway/?
+    'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
+    'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
+    'RewriteRule ^performance/?$','RewriteRule ^verification/?$',
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
+],'Cloudways routes');
+if(!str_contains($routes,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Legacy redirects could lose POST data');
+if(str_contains($routes,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API endpoints incorrectly rewritten');
+foreach([
+  'public/storage-settings.php'=>"ui_shell_start('storage')",
+  'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+  'public/qr.php'=>"ui_shell_start('qr',",
+  'public/reports-view.php'=>"ui_shell_start('reports')",
+  'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',",
+  'public/performance.php'=>"ui_shell_start('performance')",
+  'public/verification.php'=>"ui_shell_start('verification',"
+] as $file=>$fragment) {
+    requireParts($read($file),[$fragment,'ui_shell_end()','ui_breadcrumb('],$file);
+}
+foreach(['public/reports.php','public/diagnostics.php'] as $file)
+    requireParts($read($file),['application/json','admin_authenticated()'],$file.' JSON compatibility');
+echo "Single-source premium UI v6, SVG navigation, focused overview, safe API and responsive glass layout: PASS\n";
+,
+    'RewriteRule ^(contacts|templates|schedules|media|automation|developer-tools|security-center|workspaces|cloud-api)/?
+    'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
+    'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
+    'RewriteRule ^performance/?$','RewriteRule ^verification/?$',
+    'RewriteRule ^(devices|sessions|messaging|api-applications)/?$',
+    'RewriteRule ^api/diagnostics/?$','RewriteRule ^api/reports/?$',
+    'THE_REQUEST','REQUEST_METHOD','RewriteRule ^_loader'
+],'Cloudways routes');
+if(!str_contains($routes,'RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$'))
+    throw new RuntimeException('Legacy redirects could lose POST data');
+if(str_contains($routes,'RewriteRule ^api/.* index.php'))
+    throw new RuntimeException('API endpoints incorrectly rewritten');
+foreach([
+  'public/storage-settings.php'=>"ui_shell_start('storage')",
+  'public/gateway-settings.php'=>"ui_shell_start('gateway')",
+  'public/qr.php'=>"ui_shell_start('qr',",
+  'public/reports-view.php'=>"ui_shell_start('reports')",
+  'public/diagnostics-view.php'=>"ui_shell_start('diagnostics',",
+  'public/performance.php'=>"ui_shell_start('performance')",
+  'public/verification.php'=>"ui_shell_start('verification',"
+] as $file=>$fragment) {
+    requireParts($read($file),[$fragment,'ui_shell_end()','ui_breadcrumb('],$file);
+}
+foreach(['public/reports.php','public/diagnostics.php'] as $file)
+    requireParts($read($file),['application/json','admin_authenticated()'],$file.' JSON compatibility');
+echo "Single-source premium UI v6, SVG navigation, focused overview, safe API and responsive glass layout: PASS\n";
+,
     'RewriteRule ^storage/?$','RewriteRule ^qr/?$',
     'RewriteRule ^diagnostics/?$','RewriteRule ^reports/?$',
     'RewriteRule ^performance/?$','RewriteRule ^verification/?$',
