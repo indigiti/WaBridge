@@ -4,6 +4,7 @@ require __DIR__.'/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-processor.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/worker-health.php';
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -56,6 +57,7 @@ try {
     $error='Unable to load message history.';
     error_log('WaBridge message log '.get_class($e));
 }
+$workerHealth=worker_health_read();
 ?>
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -69,6 +71,17 @@ try {
 <div class="workspace-top"><div><div class="eyebrow">OPERATIONS / MESSAGE ACTIVITY</div><h1>Message activity</h1><p class="lead">Queue processing, gateway acceptance, and evidence-based delivery reporting.</p></div><a class="button button-ghost" href="/wabridge/messages">Refresh log</a></div>
 <?php if ($notice!==''): ?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif; ?>
 <?php if ($error!==''): ?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif; ?>
+<section class="glass-panel workspace-section" aria-label="Background queue processor">
+<div class="panel-heading"><div><div class="eyebrow">QUEUE OPERATIONS</div><h2>Automatic worker</h2></div>
+<span class="data-badge <?= $workerHealth['state']==='recent'?'ok':'warn' ?>"><?= $workerHealth['state']==='recent'?'Recently ran':($workerHealth['state']==='stale'?'Stale':'Not detected') ?></span></div>
+<?php if ($workerHealth['state']==='not_detected'): ?>
+<p class="panel-help">No scheduled PHP worker run has been observed. Rust being online does not process the PHP queue. Use <strong>Process next queued message</strong> below for a single test, or ask Cloudways to configure the private CLI worker every minute.</p>
+<?php elseif ($workerHealth['state']==='stale'): ?>
+<p class="panel-help">Last scheduled worker run: <?= escape(message_log_time((int)$workerHealth['last_run_at'])) ?>. The queue may not be processing automatically. Check the Cloudways cron or Supervisor job.</p>
+<?php else: ?>
+<p class="panel-help">Last worker run: <?= escape(message_log_time((int)$workerHealth['last_run_at'])) ?> · Processed <?= (int)$workerHealth['processed'] ?> · Gateway accepted <?= (int)$workerHealth['accepted'] ?> · Needs review <?= (int)$workerHealth['needs_review'] ?><?php if($workerHealth['session_blocked']): ?> · <strong>Session disconnected; oldest job remained queued</strong><?php endif; ?>. This reports PHP worker activity, not WhatsApp delivery.</p>
+<?php endif; ?>
+</section>
 <section class="stats-grid log-stats">
 <article class="stat-card"><p class="stat-label">Queued</p><div class="stat-value"><?= $counts['queued'] ?></div><p class="stat-foot">Waiting for a send worker or a manual action</p></article>
 <article class="stat-card"><p class="stat-label">Accepted / sent</p><div class="stat-value"><?= $counts['accepted']+$counts['sent'] ?></div><p class="stat-foot">Not proof of delivery</p></article>
