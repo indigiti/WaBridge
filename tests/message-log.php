@@ -18,8 +18,11 @@ require $root.'/src/message-log.php';
 require $root.'/src/message-processor.php';
 function ensure(bool $cond,string $message):void{if(!$cond)throw new RuntimeException($message);}
 $db=store();
+ensure(valid_job_id('0123456789abcdef0123456789abcdef'),'legacy job references remain valid');
+ensure(!valid_job_id('not-a-guid'),'invalid job references rejected');
 $client=['id'=>'admin','sessions'=>['test-01','test-02'],'limit'=>20];
 $queued=enqueue_message($db,$client,'test-01','919876543210','Private sensitive message','message-log-test-01');
+ensure(valid_job_id($queued['id'])&&str_contains($queued['id'],'-'),'new jobs must expose UUIDv4');
 ensure(message_log_effective_status(['state'=>'queued'])==='queued','queued state');
 ensure(message_log_mask_recipient('919876543210')==='••••3210','recipient mask');
 $before=storage_admin_messages(20);
@@ -117,4 +120,12 @@ ensure(count($sends)===1&&str_contains($sends[0],'/test-02/'),
 ensure(storage_queued_job($db,$offline['id'])!==null,
        'offline job must not be claimed during connected session dispatch');
 
+$byId=storage_message_detail($target['id']);
+ensure($byId!==null&&$byId['id']===$target['id']&&!isset($byId['body']),
+   'direct message detail must retrieve only projected fields');
+$onePage=storage_message_page(1,2);
+ensure(count($onePage['rows'])===2&&$onePage['has_next'],'bounded message page');
+$filter=storage_message_page(1,25,'','',$target['id']);
+ensure(count($filter['rows'])===1&&$filter['rows'][0]['id']===$target['id'],
+    'exact UUID filter does not depend on a 200-row preview');
 echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";

@@ -55,6 +55,7 @@ function store(): PDO|JsonStore {
       UNIQUE (client_id, idem)
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_ready ON jobs(state,next_at)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ix_jobs_created ON jobs(created_at DESC,id DESC)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS message_receipts (
       job_id TEXT NOT NULL, provider_id TEXT NOT NULL UNIQUE,
       state TEXT NOT NULL, observed_at INTEGER NOT NULL, source_event_id TEXT,
@@ -242,3 +243,4 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
 
 require_once __DIR__.'/storage-services.php';
 require_once __DIR__.'/audit-reader.php';
+require_once __DIR__.'/message-read.php';

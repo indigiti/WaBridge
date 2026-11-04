@@ -5,7 +5,7 @@ function admin_authenticated():bool{return true;}
 function csrf():string{return 'test-csrf-token';}
 function escape(string $s):string{return htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 require dirname(__DIR__).'/src/ui-shell.php';
-$pages=['overview','devices','sessions','messaging','messages','reports','diagnostics','performance','verification','api-applications','gateway','storage','qr'];
+$pages=['overview','devices','sessions','messaging','messages','reports','diagnostics','performance','verification','api-applications','gateway','storage','qr','audit','trace'];
 foreach($pages as $page) {
     ob_start();
     ui_shell_start($page,true);

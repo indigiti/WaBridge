@@ -42,15 +42,21 @@ $id=(string)($_GET['id']??'');
 if (!valid_job_id($id)) $id='';
 $session=(string)($_GET['session']??'');
 if ($session!==''&&!valid_session_id($session)) $session='';
-$rows=[]; $counts=array_fill_keys(['queued','processing','accepted','sent','delivered','read','failed','needs_review','unknown'],0);
+$page=max(1,min(2000,(int)($_GET['page']??1)));
+$rows=[];$hasNext=false;
+$counts=array_fill_keys(['queued','processing','accepted','sent','delivered','read','failed','needs_review','unknown'],0);
 try {
-    foreach (storage_admin_messages(200) as $row) {
-        if (!permitted_session($row['session_id'])) continue;
-        $state=message_log_effective_status($row);
-        if (!isset($counts[$state])) $state='unknown';
-        $counts[$state]++;
-        if (($status!=='' && $state!==$status)||($id!==''&&$row['id']!==$id)||($session!==''&&$row['session_id']!==$session)) continue;
-        $row['effective_state']=$state;
+    $summary=storage_reports();
+    foreach((array)($summary['jobs']??[]) as $entry)
+        if(isset($counts[$entry['state']??'']))$counts[$entry['state']]+=(int)($entry['count']??$entry['n']??0);
+    foreach((array)($summary['receipts']??[]) as $entry)
+        if(isset($counts[$entry['state']??''])&&in_array($entry['state'],['sent','delivered','read','failed'],true))
+            $counts[$entry['state']]+=(int)($entry['count']??$entry['n']??0);
+    $result=storage_message_page($page,25,$status,$session,$id);
+    $hasNext=$result['has_next'];
+    foreach($result['rows'] as $row) {
+        if(!permitted_session($row['session_id']))continue;
+        $row['effective_state']=message_log_effective_status($row);
         $rows[]=$row;
     }
 } catch (Throwable $e) {
@@ -94,7 +100,7 @@ $workerHealth=worker_health_read();
 <form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="process_next"><button class="button button-primary" type="submit">Process next queued message</button></form>
 </section>
 <section class="glass-panel workspace-section" id="activity">
-<div class="panel-heading"><div><div class="eyebrow">MESSAGE AUDIT</div><h2>Recent messages</h2></div><span class="subtle-tag">Last 200</span></div>
+<div class="panel-heading"><div><div class="eyebrow">MESSAGE AUDIT</div><h2>Recent messages</h2></div><span class="subtle-tag">Page <?= $page ?> · 25 / page</span></div>
 <form method="get" class="message-filter">
 <label>Delivery status<select name="status"><?php foreach ([''=>'All','queued'=>'Queued','processing'=>'Processing','accepted'=>'Accepted','sent'=>'Sent','delivered'=>'Delivered','read'=>'Read','failed'=>'Failed','needs_review'=>'Needs review'] as $value=>$label): ?><option value="<?= escape($value) ?>" <?= $status===$value?'selected':'' ?>><?= escape($label) ?></option><?php endforeach; ?></select></label>
 <label>Session<input name="session" value="<?= escape($session) ?>" maxlength="64" placeholder="Optional session"></label>
@@ -105,7 +111,7 @@ $workerHealth=worker_health_read();
 <div class="table-scroll"><table><thead><tr><th>Created (UTC)</th><th>Job / session</th><th>Recipient</th><th>Status</th><th>Gateway / failure reason</th><th>Updated (UTC)</th></tr></thead><tbody>
 <?php foreach ($rows as $row): ?>
 <tr><td><?= escape(message_log_time((int)$row['created_at'])) ?></td>
-<td><a class="table-link" href="/wabridge/messages?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
+<td><a class="table-link" href="/wabridge/trace?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
 <td><?= escape(message_log_mask_recipient($row['destination'])) ?></td>
 <td><span class="subtle-tag <?= in_array($row['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text($row['effective_state'])) ?></span></td>
 <td><?= $row['response_code']===null?'Not attempted':('HTTP '.(int)$row['response_code']) ?><small>Attempts: <?= (int)$row['attempts'] ?></small><?php if ($row['effective_state']==='needs_review'): ?><small class="message-reason"><?= escape(message_log_reason_text(message_log_reason_code($row))) ?></small><?php endif; ?><?php if (!empty($row['receipt']['provider_id'])): ?><small>Provider ID <?= escape(substr($row['receipt']['provider_id'],0,24)) ?></small><?php endif; ?></td>
@@ -113,6 +119,11 @@ $workerHealth=worker_health_read();
 <?php endforeach; ?>
 <?php if (!$rows): ?><tr><td colspan="6" class="empty-cell">No messages match this filter.</td></tr><?php endif; ?>
 </tbody></table></div>
+<div class="section-links">
+<?php $filters=['status'=>$status,'session'=>$session,'id'=>$id]; ?>
+<?php if($page>1): ?><a class="button button-ghost" href="/wabridge/messages?<?= escape(http_build_query($filters+['page'=>$page-1],'','&',PHP_QUERY_RFC3986)) ?>">Previous page</a><?php endif; ?>
+<?php if($hasNext): ?><a class="button button-primary" href="/wabridge/messages?<?= escape(http_build_query($filters+['page'=>$page+1],'','&',PHP_QUERY_RFC3986)) ?>">Next page</a><?php endif; ?>
+</div>
 </section>
 <p class="notice notice-warning">For messages marked <strong>Needs review</strong>, inspect the HTTP status and reason below, then check the recipient’s WhatsApp before attempting a new send. An uncertain result is never automatically retried. Delivery labels require matching, verified upstream receipts; HTTP 200 only confirms gateway acceptance.</p>
 </main><?php ui_shell_end(); ?></body></html>

@@ -226,7 +226,7 @@ if ($authed) {
         <div><div class="eyebrow">OPERATIONS / <?= escape(strtoupper($view)) ?></div><h1><?= escape(match($view){'devices'=>'Connect a WhatsApp device','sessions'=>'Linked sessions','messaging'=>'Send a test message','api-applications'=>'API applications',default=>'Workspace overview'}) ?></h1><p class="lead"><?= escape(match($view){'devices'=>'Create a new session and pair your WhatsApp device securely.','sessions'=>'See your connected accounts, connection state and pairing actions.','messaging'=>'Queue a consented message and monitor its actual send status.','api-applications'=>'Issue and manage scoped application credentials.',default=>'A focused view of your connections, message pipeline and system health.'}) ?></p></div>
         <span class="workspace-chip"><span class="live-dot"></span> Secure workspace</span>
       </div>
-      <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?><?php if ($queuedJobId!==''): ?> <a href="/wabridge/messages?id=<?= rawurlencode($queuedJobId) ?>"><strong>Track this message →</strong></a><?php endif; ?></div><?php endif; ?>
+      <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?><?php if ($queuedJobId!==''): ?> <a href="/wabridge/trace?id=<?= rawurlencode($queuedJobId) ?>"><strong>Track this message →</strong></a><?php endif; ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <?php if ($view==='overview'): ?>
       <section class="console-hero" aria-labelledby="hero-title">

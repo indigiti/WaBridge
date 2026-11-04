@@ -31,7 +31,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         'messaging'=>'Send message','messages'=>'Message activity','reports'=>'Reports',
         'diagnostics'=>'Diagnostics','performance'=>'Performance','verification'=>'Verification',
         'api-applications'=>'API applications','gateway'=>'Gateway settings',
-        'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log'
+        'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log','trace'=>'Message trace'
     ];
     if(!isset($pageLabels[$page]))throw new InvalidArgumentException('Unknown console page');
     if(!admin_authenticated())throw new RuntimeException('Console requires administrator authentication');
