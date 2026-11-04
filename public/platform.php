@@ -27,7 +27,7 @@ $pages=[
 $module=(string)($_GET['module']??'contacts');
 if(!isset($pages[$module])){http_response_code(404);exit('Module unavailable');}
 $page=max(1,min(1000,(int)($_GET['page']??1)));
-$notice='';$error='';$preview=[];$mediaOutcome=null;
+$notice='';$error='';$preview=[];$mediaOutcome=null;$aiDraft='';
 try{
     if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         assert_csrf();
@@ -77,6 +77,10 @@ try{
             $preview=platform_rule_preview((string)($_POST['session_id']??''),
                 (string)($_POST['sample_text']??''));
             $notice='Rule preview: '.count($preview).' matching suggestion(s). Nothing was sent.';
+        }elseif($action==='ai_draft'&&$module==='automation'){
+            $aiDraft=platform_ai_draft((string)($_POST['sample_text']??''),
+                ($_POST['allow_ai']??'')==='yes');
+            $notice='AI draft generated for human review. Nothing was sent to WhatsApp.';
         }elseif($action==='workspace_create'&&$module==='workspaces'){
             $row=platform_workspace_create((string)($_POST['name']??''));
             audit_event('workspace_configuration_created','admin',$row['id']);
@@ -226,7 +230,16 @@ try{
 <div class="field full"><label>Sample incoming message<textarea name="sample_text" rows="2" maxlength="2000" required></textarea></label></div>
 <div class="platform-button-row"><button class="button button-ghost">Preview matching suggestions</button></div></form>
 <?php foreach($preview as $match):?><p class="notice notice-success"><?= escape($match['keyword']) ?>: <?= escape($match['suggestion']) ?></p><?php endforeach;?>
-<p class="platform-help">Automatic replies and external AI inference remain disabled until consent and inbound-event safety are certified.</p>
+<p class="platform-help">Rule matching is always review-only. No automatic replies are sent.</p>
+<hr><h2>AI reply draft — optional, never automatic</h2>
+<form method="post" class="platform-form-grid">
+<input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="ai_draft">
+<div class="field full"><label>Operator-provided sample text<textarea name="sample_text" maxlength="1000" rows="3" required></textarea></label></div>
+<div class="field full"><label><input name="allow_ai" type="checkbox" value="yes" required> I have permission to send this sample text to a third-party AI provider for draft generation</label></div>
+<div class="platform-button-row"><button class="button button-ghost" <?= empty(config()['enable_ai_drafts'])?'disabled':'' ?>>Generate review-only draft</button></div>
+</form>
+<?php if($aiDraft!==''):?><div class="notice notice-success"><strong>Draft to review:</strong> <?= escape($aiDraft) ?></div><?php endif;?>
+<p class="platform-help">Requires enable_ai_drafts, ai_api_key and ai_model in private configuration. No customer text or AI draft is written to WaBridge storage.</p>
 </section>
 <?php elseif($module==='developer-tools'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P2 / DEVELOPER</div><h2>API playground</h2></div></div>

@@ -9,7 +9,10 @@ file_put_contents($cfg,'<?php return '.var_export([
     'admin_user'=>'admin','admin_password_hash'=>'dummy',
     'gateway_url'=>'http://127.0.0.1:3451','gateway_token'=>'fixture',
     'allowed_sessions'=>['unit-session'],'storage_driver'=>'json',
-    'enable_official_cloud_connect'=>true
+    'enable_official_cloud_connect'=>true,
+    'enable_ai_drafts'=>true,
+    'ai_api_key'=>'fixture-ai-key-is-private-1234',
+    'ai_model'=>'openai/gpt-4o-mini'
 ],true).';');
 register_shutdown_function(static function()use($cfg,$folder,$json):void{
     @unlink($cfg);
@@ -62,6 +65,16 @@ check($m['status']==='accepted'&&$m['delivery']==='unconfirmed','media only gate
 $rule=platform_rule_create('unit-session','admission','Manual reply suggested');
 $matches=platform_rule_preview('unit-session','admission information');
 check(count($matches)===1&&$matches[0]['action']==='review_only','no automated response');
+$draft=platform_ai_draft('Can I ask about admissions?',true,
+    static function(array $request,string $key):array{
+        check($key==='fixture-ai-key-is-private-1234','private AI credential only in transport');
+        check(strlen($request['messages'][1]['content'])<1000,'AI input bounded');
+        return ['choices'=>[['message'=>['content'=>'Our team can help with admissions.']]]];
+    });
+check($draft==='Our team can help with admissions.','operator-reviewed AI draft');
+try{platform_ai_draft('Hello',false,static fn()=>[]);
+    throw new RuntimeException('AI privacy confirmation bypassed');
+}catch(InvalidArgumentException $expected){}
 $w=platform_workspace_create('Pilot Workspace');
 check(valid_job_id($w['id'])&&$w['billing']==='disabled','workspaces are configuration only');
 $secret='fixture-secret-that-should-not-be-persisted';

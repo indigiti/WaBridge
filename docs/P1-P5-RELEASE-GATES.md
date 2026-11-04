@@ -20,7 +20,7 @@ This work adds feature modules without requiring Node.js.
 - Never display raw API tokens or webhook secrets.
 
 ## P3 — Automation
-- Keyword rule authoring and deterministic dry-run suggestions. Automatic
+- Keyword rule authoring and deterministic dry-run suggestions; operator-approved third-party AI drafting is available only when explicitly enabled and configured. Automatic
   customer replies are disabled pending opt-in/concurrency and inbound
   payload envelope verification. No uncontrolled AI transmission.
 
