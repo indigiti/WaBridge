@@ -50,6 +50,29 @@ function storage_queued_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
 }
 
 /**
+ * At most one oldest queued job per WhatsApp session. An offline account
+ * must not starve a different, connected session's send queue.
+ */
+function storage_queued_candidates(PDO|JsonStore $db,int $limit=12):array {
+    $limit=max(1,min(20,$limit));
+    if($db instanceof JsonStore)return $db->queuedCandidates($limit);
+    // SQLite >= 3.25 supports ROW_NUMBER and PHP 8.4 ships a newer SQLite.
+    $q=$db->prepare(
+        "SELECT id,session_id FROM (
+            SELECT id,session_id,created_at,
+                   ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY created_at,id) AS position
+            FROM jobs WHERE state='queued' AND next_at<=?
+        ) WHERE position=1 ORDER BY created_at,id LIMIT ?"
+    );
+    $q->bindValue(1,time(),PDO::PARAM_INT);
+    $q->bindValue(2,$limit,PDO::PARAM_INT);
+    $q->execute();
+    return array_map(static fn(array $x):array=>[
+        'id'=>(string)$x['id'],'session_id'=>(string)$x['session_id']
+    ],$q->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
  * Read-only admin activity log across PHP JSON and legacy SQLite.
  * Full recipient values are used only server-side to form a masked label.
  * Neither message bodies nor raw gateway responses enter this projection.
