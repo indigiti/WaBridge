@@ -39,7 +39,7 @@ $status=(string)($_GET['status']??'');
 $allowed=['','queued','processing','accepted','sent','delivered','read','failed','needs_review'];
 if (!in_array($status,$allowed,true)) $status='';
 $id=(string)($_GET['id']??'');
-if (!preg_match('/\A[a-f0-9]{32}\z/D',$id)) $id='';
+if (!valid_job_id($id)) $id='';
 $session=(string)($_GET['session']??'');
 if ($session!==''&&!valid_session_id($session)) $session='';
 $rows=[]; $counts=array_fill_keys(['queued','processing','accepted','sent','delivered','read','failed','needs_review','unknown'],0);
@@ -98,7 +98,7 @@ $workerHealth=worker_health_read();
 <form method="get" class="message-filter">
 <label>Delivery status<select name="status"><?php foreach ([''=>'All','queued'=>'Queued','processing'=>'Processing','accepted'=>'Accepted','sent'=>'Sent','delivered'=>'Delivered','read'=>'Read','failed'=>'Failed','needs_review'=>'Needs review'] as $value=>$label): ?><option value="<?= escape($value) ?>" <?= $status===$value?'selected':'' ?>><?= escape($label) ?></option><?php endforeach; ?></select></label>
 <label>Session<input name="session" value="<?= escape($session) ?>" maxlength="64" placeholder="Optional session"></label>
-<label>Job ID<input name="id" value="<?= escape($id) ?>" maxlength="32" placeholder="Exact job ID"></label>
+<label>Job ID<input name="id" value="<?= escape($id) ?>" maxlength="36" placeholder="GUID or legacy ID"></label>
 <button class="button button-primary" type="submit">Filter</button><a class="button button-ghost" href="/wabridge/messages">Reset</a>
 </form>
 <p class="panel-help">Recipients are masked; message bodies and secrets are never shown. Times are UTC. Records expire according to the configured test-storage retention.</p>

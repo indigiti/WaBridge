@@ -134,7 +134,7 @@ final class JsonStore {
                 if ($existing['client_id']===$client['id'] && in_array($existing['state'],['queued','processing'],true)) ++$count;
             }
             if ($count>=1000 || count($s['jobs'])>=4000) throw new RuntimeException('JSON queue capacity exceeded');
-            $id=bin2hex(random_bytes(16));$now=time();
+            $id=wabridge_guid();$now=time();
             $s['jobs'][$id]=[
                 'id'=>$id,'client_id'=>$client['id'],'session_id'=>$sid,
                 'destination'=>$to,'body'=>$body,'idem'=>$idem,'state'=>'queued',
@@ -145,7 +145,7 @@ final class JsonStore {
         });
     }
     public function claim(?string $jobId=null): ?array {
-        if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+        if($jobId!==null&&!valid_job_id($jobId))
             throw new InvalidArgumentException('Invalid job ID');
         return $this->mutate(static function(array &$s)use($jobId) {
             $best=null;
@@ -191,7 +191,7 @@ final class JsonStore {
         });
     }
     public function queuedJob(?string $jobId=null): ?array {
-        if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+        if($jobId!==null&&!valid_job_id($jobId))
             throw new InvalidArgumentException('Invalid job ID');
         return $this->read(static function(array $s)use($jobId):?array {
             $best=null;

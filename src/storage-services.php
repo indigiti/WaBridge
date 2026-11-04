@@ -35,7 +35,7 @@ function storage_queue_stats(): array {
  * queued (zero gateway calls) instead of incorrectly marking them sent.
  */
 function storage_queued_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
-    if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+    if($jobId!==null&&!valid_job_id($jobId))
         throw new InvalidArgumentException('Invalid job ID');
     if($db instanceof JsonStore)return $db->queuedJob($jobId);
     if($jobId!==null){

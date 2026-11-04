@@ -153,7 +153,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         $pending->execute([$client['id']]);
         if ((int)$pending->fetchColumn() >= 1000) throw new RuntimeException('Queue capacity exhausted for client');
     }
-    $id = bin2hex(random_bytes(16)); $now = time();
+    $id = wabridge_guid(); $now = time();
     $stmt = $db->prepare('INSERT OR IGNORE INTO jobs(id,client_id,session_id,destination,body,idem,next_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)');
     $stmt->execute([$id,$client['id'],$sid,$to,$body,$idem,$now,$now,$now]);
     $q = $db->prepare('SELECT id,state,session_id,destination FROM jobs WHERE client_id=? AND idem=?');
@@ -179,7 +179,7 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
  */
 function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
     storage_operational_guard();
-    if ($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+    if ($jobId!==null&&!valid_job_id($jobId))
         throw new InvalidArgumentException('Invalid job ID');
     if ($db instanceof JsonStore) return $db->claim($jobId);
     $now=time();
