@@ -15,3 +15,7 @@
 # Verify last scheduled run from authenticated WaBridge > Message activity
 # (Automatic worker panel). "Not detected"/"Stale" indicates that cron
 # has not been observed recently; it is not evidence of WhatsApp delivery.
+
+# Every five minutes, detect session connectivity and save a private snapshot.
+# The browser only reads this snapshot, avoiding expensive live status calls.
+*/5 * * * * /usr/bin/php /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/cli/watchdog.php >> /home/<CLOUDWAYS_USER>/applications/<APP>/private_html/wabridge/runtime/watchdog.log 2>&1

@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/message-log.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ops/retry-policy.php';
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
@@ -24,6 +25,7 @@ try {
 if($job===null)http_response_code(404);
 $status=$job===null?'unknown':message_log_effective_status($job);
 $receipt=$job['receipt']??null;
+$policy=$job===null?null:message_retry_policy($job);
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message trace · WaBridge</title>
@@ -51,6 +53,7 @@ $receipt=$job['receipt']??null;
 <tr><td><?= escape(ucfirst((string)$receipt['state'])) ?> receipt</td><td><?= escape(message_log_time((int)$receipt['observed_at'])) ?></td><td>Provider-ID-correlated signed event, latest known receipt state</td></tr>
 <?php endif; ?>
 </tbody></table></div>
+<p class="panel-help"><strong>Retry safety:</strong> <?= escape((string)$policy['reason']) ?>. Automated resend: disabled.</p>
 <p class="panel-help">Latest known status: <?= escape(message_log_status_text($status)) ?>. A live status timeline updates on refresh; historical intermediate receipt timestamps cannot be reconstructed from the current data model.</p>
 </section>
 <?php else: ?><p class="notice notice-warning">No visible message matches this reference.</p><?php endif;?>

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/_loader.php';
 require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ui-shell.php';
+require_once dirname((new ReflectionFunction('store'))->getFileName()).'/ops/connection-watchdog.php';
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: private, no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
@@ -25,6 +26,7 @@ try {
     $error='Part of the runtime could not be inspected. Check private application logs.';
     error_log('WaBridge diagnostics view '.get_class($e));
 }
+$watchdog=watchdog_read();
 $ready=(bool)($gateway['ready']??false);
 $enabled=0;
 foreach ($capabilities as $item) if (is_array($item)&&!empty($item['enabled'])) $enabled++;
@@ -42,6 +44,20 @@ foreach ($capabilities as $item) if (is_array($item)&&!empty($item['enabled'])) 
  <article class="glass-panel"><div class="eyebrow">PHP RUNTIME</div><strong><?= escape(PHP_VERSION) ?></strong><span class="data-badge ok">Available</span><small>Web administration runtime</small></article>
  <article class="glass-panel"><div class="eyebrow">APPLICATION STORAGE</div><strong><?= escape(strtoupper($driver)) ?></strong><span class="data-badge <?= $storage?'ok':'warn' ?>"><?= $storage?'Ready':'Check required' ?></span><small><?= $driver==='json'?'Private single-server test storage':'Backend health and consistency' ?></small></article>
  <article class="glass-panel"><div class="eyebrow">RUST / WAXUM</div><strong><?= escape(str_replace('_',' ',(string)$gateway['state'])) ?></strong><span class="data-badge <?= $ready?'ok':'warn' ?>">HTTP <?= $gateway['http']===null?'unavailable':(int)$gateway['http'] ?></span><small><?= escape((string)$gateway['message']) ?></small></article>
+</section>
+<section class="glass-panel workspace-section">
+<div class="panel-heading"><div><div class="eyebrow">SCHEDULED CONNECTION WATCHDOG</div><h2>WhatsApp session monitoring</h2></div>
+<span class="data-badge <?= $watchdog['state']==='recent'?'ok':'warn' ?>"><?= escape($watchdog['state']==='recent'?'Recently checked':($watchdog['state']==='stale'?'Stale':'Not configured')) ?></span></div>
+<p class="panel-help">The dashboard reads a private snapshot, not live WhatsApp session probes. Last check: <?= escape($watchdog['checked_at']===null?'Unavailable':gmdate('Y-m-d H:i:s',(int)$watchdog['checked_at']).' UTC') ?>. Gateway: <?= escape((string)$watchdog['gateway']) ?>.</p>
+<div class="stats-grid">
+<article class="stat-card"><p class="stat-label">Connected</p><div class="stat-value"><?= (int)$watchdog['connected'] ?></div></article>
+<article class="stat-card"><p class="stat-label">Disconnected</p><div class="stat-value"><?= (int)$watchdog['disconnected'] ?></div></article>
+<article class="stat-card"><p class="stat-label">Unknown</p><div class="stat-value"><?= (int)$watchdog['unknown'] ?></div></article>
+<article class="stat-card"><p class="stat-label">Sampled sessions</p><div class="stat-value"><?= (int)$watchdog['sampled_sessions'] ?></div></article>
+</div>
+<?php if($watchdog['truncated']):?><p class="notice notice-warning">The watchdog sampled its configured per-run limit. Remaining sessions were not inspected; totals do not represent every device.</p><?php endif;?>
+<?php if($watchdog['transitions']):?><p class="panel-help">Observed changes: <?= count($watchdog['transitions']) ?>. A transition to connected is an observation, not proof that WhatsApp delivered any message.</p><?php endif;?>
+<p class="panel-help">Configure the private five-minute CLI watchdog cron. It never forces QR pairing or unsupported reconnect commands.</p>
 </section>
 <div class="report-grid workspace-section">
  <section class="glass-panel"><div class="panel-heading"><div><div class="eyebrow">CONNECTIONS</div><h2>WhatsApp sessions</h2></div></div>
