@@ -173,21 +173,37 @@ function enqueue_message(PDO|JsonStore $db, array $client, string $sid, string $
         throw $e;
     }
 }
-function claim_job(PDO|JsonStore $db): ?array {
+/**
+ * Atomic queue claim. An optional ID ensures a browser-submitted message
+ * never accidentally dispatches an unrelated older queued message.
+ */
+function claim_job(PDO|JsonStore $db, ?string $jobId=null): ?array {
     storage_operational_guard();
-    if ($db instanceof JsonStore) return $db->claim();
-    $now = time();
+    if ($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+        throw new InvalidArgumentException('Invalid job ID');
+    if ($db instanceof JsonStore) return $db->claim($jobId);
+    $now=time();
     $db->exec('BEGIN IMMEDIATE');
     try {
-        $q=$db->prepare("SELECT * FROM jobs WHERE state='queued' AND next_at<=? ORDER BY created_at LIMIT 1");
-        $q->execute([$now]); $job=$q->fetch();
+        if ($jobId!==null) {
+            $q=$db->prepare("SELECT * FROM jobs WHERE id=? AND state='queued' AND next_at<=? LIMIT 1");
+            $q->execute([$jobId,$now]);
+        } else {
+            $q=$db->prepare("SELECT * FROM jobs WHERE state='queued' AND next_at<=? ORDER BY created_at,id LIMIT 1");
+            $q->execute([$now]);
+        }
+        $job=$q->fetch();
         if ($job) {
             $update=$db->prepare("UPDATE jobs SET state='processing',attempts=attempts+1,updated_at=? WHERE id=? AND state='queued'");
             $update->execute([$now,$job['id']]);
-            if ($update->rowCount()!==1) $job=null;
+            if ($update->rowCount()!==1)$job=null;
         }
-        $db->commit(); return $job ?: null;
-    } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); throw $e; }
+        $db->commit();
+        return $job?:null;
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
 }
 function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, string $response = ''): void {
     storage_operational_guard();
