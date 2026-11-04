@@ -2,42 +2,82 @@
 declare(strict_types=1);
 
 /**
- * One-shot send processor shared by Cloudways CLI workers and the
- * authenticated browser's manual testing action.
+ * PHP queue dispatcher, shared by the Cloudways CLI worker and the
+ * authenticated browser's manual/single-message send.
  *
- * Claimed jobs are never retried automatically after a network ambiguity:
- * the WhatsApp server may have received the message before the failure.
- * The only positive state from a 2xx response is "accepted", NOT delivered.
+ * A ready Rust listener is NOT proof of a usable WhatsApp account.
+ * Before claiming a job for real delivery, verify that specific session
+ * is logged in AND its socket is alive. The preflight does not mutate
+ * the queue: an offline account can safely remain queued without being
+ * converted to a misleading "attempted send".
  *
- * $sender exists only for deterministic tests. Production uses gateway().
+ * $sender can be injected by deterministic tests; in this case there is
+ * no real network preflight.
  */
-function process_next_message(PDO|JsonStore $db, ?callable $sender=null): ?array {
-    $job=claim_job($db);
-    if ($job===null) return null;
-    $sender ??= 'gateway';
+function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string $jobId=null): ?array {
+    if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
+        throw new InvalidArgumentException('Invalid queued job ID');
+    if($sender===null) {
+        $candidate=storage_queued_job($db,$jobId);
+        if($candidate===null)return null;
+        $jobId=(string)$candidate['id'];
+        $sid=(string)$candidate['session_id'];
+        if(!permitted_session($sid))
+            return ['id'=>$jobId,'state'=>'blocked','http'=>0,'reason'=>'session_not_authorized'];
+        try {
+            $state=session_state($sid);
+            if(($state['http']??null)!==200 ||
+               empty($state['is_logged_in']) ||
+               empty($state['socket_alive'])) {
+                return [
+                    'id'=>$jobId,'state'=>'blocked',
+                    'http'=>(int)($state['http']??0),
+                    'reason'=>($state['http']??null)===200
+                        ? 'session_disconnected' : 'session_status_unavailable'
+                ];
+            }
+        } catch(Throwable $e) {
+            error_log('WaBridge queue preflight '.get_class($e));
+            return ['id'=>$jobId,'state'=>'blocked','http'=>0,'reason'=>'session_status_unavailable'];
+        }
+    }
+    // Claim by exact ID when selected to avoid dispatching an unrelated
+    // queue record between session preflight and the atomic claim.
+    $job=claim_job($db,$jobId);
+    if($job===null)return null;
+    $sender??='gateway';
     $id=(string)$job['id'];
     try {
-        if (!valid_session_id((string)$job['session_id']))
+        if(!valid_session_id((string)$job['session_id']))
             throw new RuntimeException('invalid_session');
         $r=$sender('POST','/api/v1/sessions/'.$job['session_id'].'/messages/text',[
-            'to'=>$job['destination'], 'text'=>$job['body'],
+            'to'=>$job['destination'],'text'=>$job['body'],
         ]);
-        if (!is_array($r)) throw new RuntimeException('invalid_gateway_result');
+        if(!is_array($r))throw new RuntimeException('invalid_gateway_result');
         $http=(int)($r['http']??0);
-        $data=is_array($r['data']??null) ? $r['data'] : [];
+        $data=is_array($r['data']??null)?$r['data']:[];
         $providerId=(string)($data['message_id']??'');
-        if ($http>=200 && $http<300 && $providerId!=='' && strlen($providerId)<=200) {
-            // Never store sensitive upstream response objects as message logs.
+        $status=(string)($data['status']??'');
+        // Waxum v0.16.1: immediate sends return
+        // {"status":"sent","message_id":"...",...}. This proves Waxum
+        // accepted/sent upstream, NOT that WhatsApp delivered.
+        if($http>=200&&$http<300&&$providerId!==''&&strlen($providerId)<=200
+           &&($status===''||$status==='sent')) {
             complete_job($db,$id,'accepted',$http,'gateway_accepted');
             record_provider_message($db,$id,$providerId);
             return ['id'=>$id,'state'=>'accepted','http'=>$http,'provider_message_id'=>$providerId];
         }
-        // Success without a usable upstream ID is untraceable, and 4xx/5xx
-        // responses can be ambiguous. Never call these "delivered".
-        complete_job($db,$id,'needs_review',$http,$http>=200 && $http<300 ? 'missing_provider_id' : 'gateway_http_error');
-        return ['id'=>$id,'state'=>'needs_review','http'=>$http];
-    } catch (Throwable $e) {
+        $reason=($http>=200&&$http<300)
+            ? 'missing_provider_id' : 'gateway_http_'.($http>=100&&$http<=599?$http:0);
+        // 2xx responses with pending/scheduled status are not immediate sends.
+        if($http>=200&&$http<300&&$status==='pending')$reason='unexpected_scheduled_response';
+        complete_job($db,$id,'needs_review',$http,$reason);
+        return ['id'=>$id,'state'=>'needs_review','http'=>$http,'reason'=>$reason];
+    } catch(Throwable $e) {
+        // Never automatically retry after a transport error; the WhatsApp
+        // server may have received a message just before the connection died.
+        error_log('WaBridge send attempt uncertain '.get_class($e));
         complete_job($db,$id,'needs_review',0,'transport_or_worker_failure');
-        return ['id'=>$id,'state'=>'needs_review','http'=>0];
+        return ['id'=>$id,'state'=>'needs_review','http'=>0,'reason'=>'transport_or_worker_failure'];
     }
 }
