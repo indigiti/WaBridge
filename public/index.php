@@ -7,7 +7,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'");
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; style-src 'self'");
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') header('Strict-Transport-Security: max-age=31536000');
 $notice = '';
 $error = '';
@@ -129,26 +129,10 @@ if ($authed) {
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#eef3f7">
+  <meta name="theme-color" content="#f3f6fc">
   <title>WaBridge — Control Center</title>
-  <!-- Critical first paint: remains usable even if a CDN or proxy serves stale CSS. -->
-  <style>
-    :root{color-scheme:light;font-family:system-ui,sans-serif;color:#183653;background:#eef3f7}
-    *{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#e9f1f2,#edf1f9);min-height:100vh;color:#183653}
-    .site-shell{min-height:100vh;display:flex;flex-direction:column}.site-header{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,5vw,66px)}
-    .brand-lockup{color:#174471;text-decoration:none;font-weight:700}.brand-copy{display:inline-flex;flex-direction:column}.brand-copy small{font-size:10px;letter-spacing:1px}
-    .auth-main{flex:1;display:grid;place-items:center;padding:20px}.auth-card{width:min(100%,505px);padding:38px;border:1px solid white;border-radius:25px;background:rgba(255,255,255,.8);box-shadow:0 20px 70px #21466d18;text-align:center}
-    .auth-form,.form-stack{display:grid;gap:16px;text-align:left}.field{display:grid;gap:6px}.field input,.field textarea,.client-form input{width:100%;min-height:46px;border:1px solid #cbd8e6;border-radius:12px;background:white;padding:12px}
-    .button{padding:12px 20px;border:0;border-radius:12px;cursor:pointer}.button-primary{color:white;background:#285a9d}.button-wide{width:100%}
-    .workspace{max-width:1280px;width:100%;margin:auto;padding:30px 20px}.stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-    .workspace-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.glass-panel,.stat-card{background:rgba(255,255,255,.8);border:1px solid white;border-radius:20px;padding:24px;margin-bottom:20px}
-    .section-nav{display:flex;gap:20px;overflow:auto}.table-scroll{overflow-x:auto}.site-footer{padding:25px;text-align:center;font-size:12px;color:#667d92}
-    @media(max-width:740px){.stats-grid,.workspace-two{grid-template-columns:1fr}.auth-card{padding:26px}.site-header{padding:20px}}
-  </style>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v5.css?v=5">
-  <?php if ($authed): ?>
-    <script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
-  <?php endif; ?>
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
+  <?php if ($authed): ?><script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script><?php endif; ?>
 </head>
 <body class="<?= $authed ? 'dashboard-page page-view-'.escape($view) : 'auth-page' ?>">
 <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -207,36 +191,53 @@ if ($authed) {
     <?php else: ?>
       <?php ui_breadcrumb('Operations',match($view){'devices'=>'Connect device','sessions'=>'Linked sessions','messaging'=>'Messaging','api-applications'=>'API applications',default=>'Overview'}); ?>
       <div class="workspace-top">
-        <div><div class="eyebrow">OPERATIONS / <?= escape(strtoupper($view)) ?></div><h1><?= escape(match($view){'devices'=>'Connect a WhatsApp device','sessions'=>'Linked sessions','messaging'=>'Send a test message','api-applications'=>'API applications',default=>'Messaging control center'}) ?></h1><p class="lead"><?= escape(match($view){'devices'=>'Create a new session and pair with your own device.','sessions'=>'Review connection state and access pairing QR codes.','messaging'=>'Queue an authorized test message and track its outcome.','api-applications'=>'Manage scoped application credentials and access.',default=>'Sessions, queued messages and gateway health in one workspace.'}) ?></p></div>
-        <span class="workspace-chip"><span class="live-dot"></span> Admin workspace</span>
+        <div><div class="eyebrow">OPERATIONS / <?= escape(strtoupper($view)) ?></div><h1><?= escape(match($view){'devices'=>'Connect a WhatsApp device','sessions'=>'Linked sessions','messaging'=>'Send a test message','api-applications'=>'API applications',default=>'Workspace overview'}) ?></h1><p class="lead"><?= escape(match($view){'devices'=>'Create a new session and pair your WhatsApp device securely.','sessions'=>'See your connected accounts, connection state and pairing actions.','messaging'=>'Queue a consented message and monitor its actual send status.','api-applications'=>'Issue and manage scoped application credentials.',default=>'A focused view of your connections, message pipeline and system health.'}) ?></p></div>
+        <span class="workspace-chip"><span class="live-dot"></span> Secure workspace</span>
       </div>
       <?php if ($notice): ?><div class="notice notice-success" role="status"><?= escape($notice) ?><?php if ($queuedJobId!==''): ?> <a href="/wabridge/messages?id=<?= rawurlencode($queuedJobId) ?>"><strong>Track this message →</strong></a><?php endif; ?></div><?php endif; ?>
       <?php if ($error): ?><div class="notice notice-warning" role="alert"><?= escape($error) ?></div><?php endif; ?>
       <?php if ($view==='overview'): ?>
-      <div class="console-hero-actions" aria-label="Quick actions">
-        <a href="/wabridge/messaging"><span aria-hidden="true">↗</span> Send test message</a>
-        <a href="/wabridge/devices"><span aria-hidden="true">＋</span> Link a device</a>
-        <a href="/wabridge/messages"><span aria-hidden="true">▤</span> Message activity</a>
-        <a href="/wabridge/diagnostics"><span aria-hidden="true">◉</span> Diagnostics</a>
-      </div>
-      <div class="console-info-banner"><span class="nav-icon" aria-hidden="true">ⓘ</span><span><strong>Gateway acceptance is not delivery.</strong> Review the message log for queue processing, errors, and any verified receipts.</span></div>
+      <section class="console-hero" aria-labelledby="hero-title">
+        <div class="console-hero-main">
+          <div class="eyebrow">YOUR MESSAGING WORKSPACE</div>
+          <h2 id="hero-title">Every connection.<br>One clear view.</h2>
+          <p>Monitor your sessions, send messages with confidence and keep your integrations moving from a single control center.</p>
+          <div class="console-hero-actions">
+            <a href="/wabridge/devices"><?= ui_icon('devices') ?> Link a device</a>
+            <a href="/wabridge/messaging"><?= ui_icon('messaging') ?> Send a message</a>
+          </div>
+        </div>
+        <div class="console-hero-aside">
+          <div class="console-hero-status">
+            <div class="console-hero-status-label">Rust gateway</div>
+            <strong><span class="live-dot" aria-hidden="true"></span><?= $gatewayState['ready']?'Operational':'Needs attention' ?></strong>
+            <small><?= $gatewayState['ready']?'Gateway ready · WhatsApp sessions checked separately':'Open diagnostics to review the connection' ?></small>
+          </div>
+          <div class="console-hero-status">
+            <div class="console-hero-status-label">Message pipeline</div>
+            <strong><?= (int)$stats['queued'] ?> in queue</strong>
+            <small>Review pending and uncertain messages in Activity</small>
+          </div>
+        </div>
+      </section>
       <?php endif; ?>
       <?php if ($view==='overview'): ?>
       <section id="overview" aria-labelledby="overview-title" class="workspace-section">
-        <div class="section-heading"><div><div class="eyebrow">SYSTEM INSIGHTS</div><h2 id="overview-title">Overview</h2></div><span class="section-subtitle">Current infrastructure and queue</span></div>
+        <div class="section-heading"><div><div class="eyebrow">REAL-TIME SNAPSHOT</div><h2 id="overview-title">At a glance</h2></div><span class="section-subtitle">Current gateway and message pipeline</span></div>
         <div class="stats-grid">
-          <article class="stat-card"><span class="stat-icon" aria-hidden="true">◉</span><p class="stat-label">Gateway health</p><div class="stat-value <?= $health==='Ready' ? 'tone-success' : 'tone-amber' ?>"><?= escape($health) ?></div><div class="stat-foot">Rust gateway readiness</div></article>
-          <article class="stat-card"><span class="stat-icon" aria-hidden="true">▣</span><p class="stat-label">Linked sessions</p><div class="stat-value"><?= count($sessions) ?></div><div class="stat-foot">Reported by gateway</div></article>
-          <article class="stat-card"><span class="stat-icon" aria-hidden="true">↗</span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted; not necessarily delivered</div></article>
-          <article class="stat-card"><span class="stat-icon" aria-hidden="true">!</span><p class="stat-label">Needs review</p><div class="stat-value"><?= (int)$stats['needs_review'] ?></div><div class="stat-foot"><a href="/wabridge/messages?status=needs_review">Review uncertain deliveries</a></div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true"><?= ui_icon('diagnostics') ?></span><p class="stat-label">Gateway health</p><div class="stat-value <?= $health==='Ready' ? 'tone-success' : 'tone-amber' ?>"><?= escape($health) ?></div><div class="stat-foot">Rust gateway readiness</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true"><?= ui_icon('sessions') ?></span><p class="stat-label">Linked sessions</p><div class="stat-value"><?= count($sessions) ?></div><div class="stat-foot">Reported by gateway</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true"><?= ui_icon('messaging') ?></span><p class="stat-label">Queued messages</p><div class="stat-value"><?= (int)$stats['queued'] ?></div><div class="stat-foot"><?= (int)$stats['accepted'] ?> accepted; not necessarily delivered</div></article>
+          <article class="stat-card"><span class="stat-icon" aria-hidden="true"><?= ui_icon('verification') ?></span><p class="stat-label">Needs review</p><div class="stat-value"><?= (int)$stats['needs_review'] ?></div><div class="stat-foot"><a href="/wabridge/messages?status=needs_review">Review uncertain deliveries</a></div></article>
         </div>
       </section>
       <?php endif; ?>
       <?php if (!$gatewayState['ready']): ?><div class="notice notice-warning" role="status"><strong>WhatsApp gateway: <?= escape(str_replace('_',' ',(string)$gatewayState['state'])) ?>.</strong> <?= escape((string)$gatewayState['message']) ?> <a href="/wabridge/gateway">Configure gateway</a> · <a href="/wabridge/diagnostics">Diagnostics</a></div><?php endif; ?>
+      <?php if (in_array($view,['devices','messaging'],true)): ?>
       <div class="workspace-two">
-        <?php if (in_array($view,['overview','messaging'],true)): ?>
+        <?php if ($view==='messaging'): ?>
         <section class="glass-panel workspace-section" id="messaging" aria-labelledby="message-title">
-          <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true">↗</span></div>
+          <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true"><?= ui_icon('messaging') ?></span></div>
           <p class="panel-help">Queue a message through a configured WhatsApp session. Submission is not proof of delivery.</p>
           <form method="post" class="form-stack">
             <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
@@ -247,9 +248,9 @@ if ($authed) {
           </form>
         </section>
         <?php endif; ?>
-        <?php if (in_array($view,['overview','devices'],true)): ?>
+        <?php if ($view==='devices'): ?>
         <section class="glass-panel workspace-section" id="devices" aria-labelledby="device-title">
-          <div class="panel-heading"><div><div class="eyebrow">CONNECTIONS</div><h2 id="device-title">Connect a device</h2></div><span class="soft-icon" aria-hidden="true">▣</span></div>
+          <div class="panel-heading"><div><div class="eyebrow">CONNECTIONS</div><h2 id="device-title">Connect a device</h2></div><span class="soft-icon" aria-hidden="true"><?= ui_icon('devices') ?></span></div>
           <p class="panel-help">Create a session, then scan its QR code from WhatsApp Linked Devices.</p>
           <div class="device-illustration" aria-hidden="true"><span class="device-orbit orbit-a"></span><span class="device-orbit orbit-b"></span><span class="device-core">▦</span></div>
           <form method="post" class="form-stack">
@@ -260,9 +261,11 @@ if ($authed) {
         </section>
         <?php endif; ?>
       </div>
+      <?php endif; ?>
+      <?php if ($view==='overview'): ?><div class="console-overview-grid workspace-section"><?php endif; ?>
       <?php if (in_array($view,['overview','devices','sessions'],true)): ?>
       <section class="glass-panel workspace-section" id="sessions" aria-labelledby="sessions-title">
-        <div class="panel-heading"><div><div class="eyebrow">CONNECTED ACCOUNTS</div><h2 id="sessions-title">WhatsApp sessions</h2></div><span class="subtle-tag">QR secured</span></div>
+        <div class="panel-heading"><div><div class="eyebrow">CONNECTED ACCOUNTS</div><h2 id="sessions-title">WhatsApp sessions</h2></div><a class="button button-ghost button-small" href="/wabridge/devices">Add device →</a></div>
         <div class="table-scroll"><table><thead><tr><th>Session</th><th>Status</th><th>Pairing</th></tr></thead><tbody>
           <?php $visibleSessions=0; foreach ($sessions as $s): if (!is_array($s)) continue; $sid=(string)($s['id']??$s['session_id']??''); if (!permitted_session($sid)) continue; $visibleSessions++; ?>
             <tr><td><strong><?= escape($sid) ?></strong></td><td><span class="subtle-tag"><?= escape((string)($s['status']??'Unknown')) ?></span></td><td><a class="table-link" href="/wabridge/qr?sid=<?= rawurlencode($sid) ?>">View QR ↗</a></td></tr>
@@ -293,6 +296,7 @@ if ($authed) {
         </table></div>
       </section>
       <?php endif; ?>
+      <?php if ($view==='overview'): ?></div><?php endif; ?>
       <?php if (in_array($view,['overview','api-applications'],true)): ?>
       <details class="ops-collapse" id="integrations" <?= $view==='api-applications'?'open':'' ?>><summary><span>API applications<span class="ops-caption">Developer credentials and scoped integration access</span></span></summary>
       <section class="glass-panel workspace-section" aria-labelledby="api-title">
