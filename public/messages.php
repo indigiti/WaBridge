@@ -46,12 +46,7 @@ $page=max(1,min(2000,(int)($_GET['page']??1)));
 $rows=[];$hasNext=false;
 $counts=array_fill_keys(['queued','processing','accepted','sent','delivered','read','failed','needs_review','unknown'],0);
 try {
-    $summary=storage_reports();
-    foreach((array)($summary['jobs']??[]) as $entry)
-        if(isset($counts[$entry['state']??'']))$counts[$entry['state']]+=(int)($entry['count']??$entry['n']??0);
-    foreach((array)($summary['receipts']??[]) as $entry)
-        if(isset($counts[$entry['state']??''])&&in_array($entry['state'],['sent','delivered','read','failed'],true))
-            $counts[$entry['state']]+=(int)($entry['count']??$entry['n']??0);
+    $counts=storage_message_status_counts();
     $result=storage_message_page($page,25,$status,$session,$id);
     $hasNext=$result['has_next'];
     foreach($result['rows'] as $row) {

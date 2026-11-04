@@ -20,15 +20,18 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
     $valid=['','queued','processing','accepted','sent','delivered','read','failed','needs_review'];
     if(!in_array($status,$valid,true))throw new InvalidArgumentException('Invalid delivery status');
     $offset=($page-1)*$perPage;
+    $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
+        static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
     $db=store();
     if($db instanceof JsonStore) {
-        return $db->read(static function(array $s)use($page,$perPage,$offset,$status,$session,$jobId):array {
+        return $db->read(static function(array $s)use($page,$perPage,$offset,$status,$session,$jobId,$allowed):array {
             $receipts=[];
             foreach($s['receipts'] as $r) if(is_array($r))
                 $receipts[(string)($r['job_id']??'')]=$r;
             $rows=[];
             foreach($s['jobs'] as $job) {
                 if(!is_array($job))continue;
+                if($allowed&&!in_array((string)$job['session_id'],$allowed,true))continue;
                 if($jobId!==''&&$job['id']!==$jobId)continue;
                 if($session!==''&&$job['session_id']!==$session)continue;
                 $receipt=$receipts[(string)$job['id']]??null;
@@ -59,6 +62,8 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
         });
     }
     $where=[];$parameters=[];
+    if($allowed){$where[]='j.session_id IN ('.implode(',',array_fill(0,count($allowed),'?')).')';
+        foreach($allowed as $allowedSid)$parameters[]=$allowedSid;}
     if($jobId!==''){$where[]='j.id=?';$parameters[]=$jobId;}
     if($session!==''){$where[]='j.session_id=?';$parameters[]=$session;}
     if($status!=='') {
@@ -113,4 +118,44 @@ function storage_message_timeline(string $id):array {
     $stmt=$db->prepare('SELECT guid,state,proof,at FROM message_timeline WHERE job_id=? ORDER BY seq DESC LIMIT 40');
     $stmt->execute([$id]);
     return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * One aggregate query instead of hydrating full Reports and all administrator
+ * audit entries for message-status counters. Effective receipt states are
+ * mutually exclusive: a delivered job is not also counted as accepted.
+ */
+function storage_message_status_counts():array {
+    $counts=array_fill_keys(['queued','processing','accepted','sent','delivered',
+        'read','failed','needs_review','unknown'],0);
+    $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
+        static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
+    $db=store();
+    if($db instanceof JsonStore)
+        return $db->read(static function(array $s)use($counts,$allowed):array {
+            $receipts=[];
+            foreach($s['receipts'] as $receipt)if(is_array($receipt))
+                $receipts[(string)($receipt['job_id']??'')]=$receipt;
+            foreach($s['jobs'] as $job) {
+                if(!is_array($job))continue;
+                if($allowed&&!in_array((string)($job['session_id']??''),$allowed,true))continue;
+                $state=storage_message_state($job,$receipts[(string)$job['id']]??null);
+                $counts[isset($counts[$state])?$state:'unknown']++;
+            }
+            return $counts;
+        });
+    $where=$allowed?' WHERE j.session_id IN ('.implode(',',array_fill(0,count($allowed),'?')).')':'';
+    $sql="SELECT CASE WHEN j.state='accepted'
+        AND r.state IN ('sent','delivered','read','failed') THEN r.state
+        ELSE j.state END AS effective_state,COUNT(*) AS n
+        FROM jobs j LEFT JOIN message_receipts r ON r.job_id=j.id".$where.
+        ' GROUP BY effective_state';
+    $q=$db->prepare($sql);
+    foreach($allowed as $i=>$sid)$q->bindValue($i+1,$sid,PDO::PARAM_STR);
+    $q->execute();
+    foreach($q->fetchAll(PDO::FETCH_ASSOC) as $entry) {
+        $state=(string)($entry['effective_state']??'unknown');
+        $counts[isset($counts[$state])?$state:'unknown']+=(int)$entry['n'];
+    }
+    return $counts;
 }
