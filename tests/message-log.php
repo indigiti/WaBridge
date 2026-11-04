@@ -6,7 +6,7 @@ if (is_file($cfg)||is_dir($runtime)) throw new RuntimeException('Refusing to alt
 file_put_contents($cfg,'<?php return '.var_export([
   'storage_driver'=>'json','gateway_url'=>'http://127.0.0.1:3451',
   'gateway_token'=>'mock-token','admin_user'=>'tests',
-  'admin_password_hash'=>'mock-hash','allowed_sessions'=>['test-01']
+  'admin_password_hash'=>'mock-hash','allowed_sessions'=>['test-01','test-02']
 ],true).';');
 register_shutdown_function(static function()use($cfg,$runtime){
     @unlink($cfg);
@@ -18,7 +18,7 @@ require $root.'/src/message-log.php';
 require $root.'/src/message-processor.php';
 function ensure(bool $cond,string $message):void{if(!$cond)throw new RuntimeException($message);}
 $db=store();
-$client=['id'=>'admin','sessions'=>['test-01'],'limit'=>20];
+$client=['id'=>'admin','sessions'=>['test-01','test-02'],'limit'=>20];
 $queued=enqueue_message($db,$client,'test-01','919876543210','Private sensitive message','message-log-test-01');
 ensure(message_log_effective_status(['state'=>'queued'])==='queued','queued state');
 ensure(message_log_mask_recipient('919876543210')==='••••3210','recipient mask');
@@ -88,5 +88,32 @@ ensure(message_log_reason_code(['reason_code'=>'Bearer SECRET abc'])==='',
   'untrusted raw gateway error must never leak through admin UI');
 ensure(message_log_effective_status($storedUncertain)==='needs_review',
   'unknown gateway send must not appear delivered');
+
+
+$otherSession=enqueue_message($db,$client,'test-02','919876543210','Separate connected session','message-log-test-other-session');
+$scan=storage_queued_candidates($db,4);
+ensure(count($scan)===2,'queued candidates must be one per distinct session');
+ensure($scan[0]['session_id']==='test-01'&&$scan[1]['session_id']==='test-02',
+   'queue candidates must preserve oldest-session priority');
+$sends=[];
+$fromConnected=process_next_message($db,
+    static function($method,$path,$payload)use(&$sends):array{
+        $sends[]=$path;
+        return ['http'=>200,'data'=>['status'=>'sent','message_id'=>'healthy-other-session']];
+    },
+    null,
+    static fn(string $sid):array=>[
+       'http'=>200,
+       'is_logged_in'=>$sid==='test-02',
+       'socket_alive'=>$sid==='test-02'
+    ]
+);
+ensure($fromConnected!==null&&$fromConnected['id']===$otherSession['id']&&
+       $fromConnected['state']==='accepted',
+       'disconnected session must not block another healthy session');
+ensure(count($sends)===1&&str_contains($sends[0],'/test-02/'),
+       'only the connected session may reach gateway sender');
+ensure(storage_queued_job($db,$offline['id'])!==null,
+       'offline job must not be claimed during connected session dispatch');
 
 echo "Message activity status, masking, mock send, provider receipt correlation and no ambiguous retries: PASS\n";
