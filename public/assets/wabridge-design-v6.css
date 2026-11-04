@@ -71,6 +71,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,t
 .console-body{display:grid;grid-template-columns:266px minmax(0,1fr);gap:0;width:100%;max-width:2000px;
  min-width:0;flex:1;margin:0 auto;transition:grid-template-columns .22s ease}
 .console-body.sidebar-compact{grid-template-columns:84px minmax(0,1fr)}
+.console-mobile-backdrop{display:none}
 .console-sidebar{
  height:calc(100dvh - 94px);min-height:560px;position:sticky;top:8px;align-self:start;
  display:flex;flex-direction:column;overflow:auto;scrollbar-width:thin;scrollbar-color:#8c9dd077 transparent;
