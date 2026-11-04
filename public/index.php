@@ -51,6 +51,14 @@ try {
             exit;
         } elseif (admin_authenticated()) {
             if ($action === 'send') {
+                // Browser form nonce is single-use to prevent double clicks,
+                // back-button resubmits and duplicated WhatsApp test sends.
+                $nonce=(string)($_POST['send_nonce']??'');
+                $issued=(string)($_SESSION['send_nonce']??'');
+                if(!preg_match('/\\A[a-f0-9]{32}\\z/D',$nonce)||
+                   $issued===''||!hash_equals($issued,$nonce))
+                    throw new InvalidArgumentException('This test send was already submitted or the form expired. Refresh before sending again.');
+                unset($_SESSION['send_nonce']);
                 [$sid, $to, $text] = validate_message([
                     'session_id'=>$_POST['session_id'] ?? '',
                     'to'=>$_POST['to'] ?? '',
@@ -264,7 +272,7 @@ if ($authed) {
           <div class="panel-heading"><div><div class="eyebrow">MESSAGING</div><h2 id="message-title">Send a test message</h2></div><span class="soft-icon" aria-hidden="true"><?= ui_icon('messaging') ?></span></div>
           <p class="panel-help">Send one consented test message immediately through an actively connected WhatsApp session. Gateway acceptance is not proof of delivery; check Message activity for any verified receipt.</p>
           <form method="post" class="form-stack">
-            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send">
+            <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="send"><input type="hidden" name="send_nonce" value="<?= escape((string)($_SESSION['send_nonce']??=bin2hex(random_bytes(16)))) ?>">
             <div class="field"><label for="sid">Session ID</label><input id="sid" name="session_id" maxlength="64" placeholder="e.g. school-01" required></div>
             <div class="field"><label for="to">Recipient number</label><input id="to" name="to" maxlength="15" inputmode="numeric" placeholder="Country code + number, digits only" required></div>
             <div class="field"><label for="txt">Message</label><textarea id="txt" name="text" rows="4" maxlength="2000" placeholder="Write your message..." required></textarea></div>
