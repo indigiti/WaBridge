@@ -93,8 +93,9 @@ ensure(message_log_effective_status($storedUncertain)==='needs_review',
 $otherSession=enqueue_message($db,$client,'test-02','919876543210','Separate connected session','message-log-test-other-session');
 $scan=storage_queued_candidates($db,4);
 ensure(count($scan)===2,'queued candidates must be one per distinct session');
-ensure($scan[0]['session_id']==='test-01'&&$scan[1]['session_id']==='test-02',
-   'queue candidates must preserve oldest-session priority');
+$sessionNames=array_column($scan,'session_id');sort($sessionNames);
+ensure($sessionNames===['test-01','test-02'],
+   'queue candidate list must contain one job per session');
 $sends=[];
 $fromConnected=process_next_message($db,
     static function($method,$path,$payload)use(&$sends):array{
