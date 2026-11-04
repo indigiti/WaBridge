@@ -19,9 +19,16 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
         if (!gateway_diagnostics()['ready']) throw new InvalidArgumentException('Rust gateway is unavailable; queue was not processed.');
         storage_reap_jobs();
         $out=process_next_message(store());
-        if (!$out) $notice='No queued messages are available.';
-        elseif ($out['state']==='accepted') $notice='Job '.$out['id'].' accepted by Rust. Delivery is NOT confirmed.';
-        else $error='Job '.$out['id'].' needs review; do not blindly retry an uncertain send.';
+        if(!$out)$notice='No queued messages are available.';
+        elseif($out['state']==='accepted')
+            $notice='Job '.$out['id'].' accepted by Waxum (HTTP '.$out['http'].'). WhatsApp delivery is NOT confirmed.';
+        elseif($out['state']==='blocked')
+            $error='Job '.$out['id'].' remains safely queued. '.
+                message_log_reason_text((string)($out['reason']??'session_disconnected')).
+                '. No gateway send was attempted.';
+        else
+            $error='Job '.$out['id'].' needs review (HTTP '.$out['http'].'): '.
+                message_log_reason_text((string)($out['reason']??'')).'. Do not blindly resend.';
     } catch (Throwable $e) {
         $error=$e instanceof InvalidArgumentException ? $e->getMessage() : 'Message processing unavailable; see private server logs.';
         error_log('WaBridge message log worker '.get_class($e));
@@ -63,14 +70,14 @@ try {
 <?php if ($notice!==''): ?><p class="notice notice-success" role="status"><?= escape($notice) ?></p><?php endif; ?>
 <?php if ($error!==''): ?><p class="notice notice-warning" role="alert"><?= escape($error) ?></p><?php endif; ?>
 <section class="stats-grid log-stats">
-<article class="stat-card"><p class="stat-label">Queued</p><div class="stat-value"><?= $counts['queued'] ?></div><p class="stat-foot">Waiting for PHP worker</p></article>
+<article class="stat-card"><p class="stat-label">Queued</p><div class="stat-value"><?= $counts['queued'] ?></div><p class="stat-foot">Waiting for a send worker or a manual action</p></article>
 <article class="stat-card"><p class="stat-label">Accepted / sent</p><div class="stat-value"><?= $counts['accepted']+$counts['sent'] ?></div><p class="stat-foot">Not proof of delivery</p></article>
 <article class="stat-card"><p class="stat-label">Delivered / read</p><div class="stat-value"><?= $counts['delivered']+$counts['read'] ?></div><p class="stat-foot">Verified matching receipts</p></article>
 <article class="stat-card"><p class="stat-label">Failed / review</p><div class="stat-value"><?= $counts['failed']+$counts['needs_review'] ?></div><p class="stat-foot">Investigation required</p></article>
 </section>
 <section class="glass-panel workspace-section">
 <div class="panel-heading"><div><div class="eyebrow">QUEUE CONTROL</div><h2>Manual processing</h2></div></div>
-<p class="panel-help">Send one pending message through Waxum in this browser session. Use a separate supervised PHP worker for automatic processing. An accepted request is not a WhatsApp delivery confirmation.</p>
+<p class="panel-help">Process the oldest queued message through Waxum. WaBridge checks that its WhatsApp session is logged in with a live socket before claiming it; disconnected sessions remain queued. Automatic API queue processing still requires a separately scheduled PHP worker on Cloudways. An accepted request is not a delivery receipt.</p>
 <form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="process_next"><button class="button button-primary" type="submit">Process next queued message</button></form>
 </section>
 <section class="glass-panel workspace-section" id="activity">
@@ -82,17 +89,17 @@ try {
 <button class="button button-primary" type="submit">Filter</button><a class="button button-ghost" href="/wabridge/messages">Reset</a>
 </form>
 <p class="panel-help">Recipients are masked; message bodies and secrets are never shown. Times are UTC. Records expire according to the configured test-storage retention.</p>
-<div class="table-scroll"><table><thead><tr><th>Created (UTC)</th><th>Job / session</th><th>Recipient</th><th>Status</th><th>Gateway</th><th>Updated (UTC)</th></tr></thead><tbody>
+<div class="table-scroll"><table><thead><tr><th>Created (UTC)</th><th>Job / session</th><th>Recipient</th><th>Status</th><th>Gateway / failure reason</th><th>Updated (UTC)</th></tr></thead><tbody>
 <?php foreach ($rows as $row): ?>
 <tr><td><?= escape(message_log_time((int)$row['created_at'])) ?></td>
 <td><a class="table-link" href="/wabridge/messages?id=<?= rawurlencode($row['id']) ?>"><?= escape($row['id']) ?></a><small><?= escape($row['session_id']) ?> / <?= escape($row['client_id']) ?></small></td>
 <td><?= escape(message_log_mask_recipient($row['destination'])) ?></td>
 <td><span class="subtle-tag <?= in_array($row['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text($row['effective_state'])) ?></span></td>
-<td><?= $row['response_code']===null?'—':(int)$row['response_code'] ?><small>Attempts <?= (int)$row['attempts'] ?></small><?php if (!empty($row['receipt']['provider_id'])): ?><small>Provider ID <?= escape(substr($row['receipt']['provider_id'],0,24)) ?></small><?php endif; ?></td>
+<td><?= $row['response_code']===null?'Not attempted':('HTTP '.(int)$row['response_code']) ?><small>Attempts: <?= (int)$row['attempts'] ?></small><?php if ($row['effective_state']==='needs_review'): ?><small class="message-reason"><?= escape(message_log_reason_text(message_log_reason_code($row))) ?></small><?php endif; ?><?php if (!empty($row['receipt']['provider_id'])): ?><small>Provider ID <?= escape(substr($row['receipt']['provider_id'],0,24)) ?></small><?php endif; ?></td>
 <td><?= escape(message_log_time((int)($row['receipt']['observed_at']??$row['updated_at']))) ?></td></tr>
 <?php endforeach; ?>
 <?php if (!$rows): ?><tr><td colspan="6" class="empty-cell">No messages match this filter.</td></tr><?php endif; ?>
 </tbody></table></div>
 </section>
-<p class="notice notice-warning">Delivery labels require signed, matching upstream receipt data. Waxum v0.16.1 WhatsApp Web receipt events may be unstructured; a gateway HTTP 200 must remain “Accepted / delivery unknown” until matching delivery evidence exists.</p>
+<p class="notice notice-warning">For messages marked <strong>Needs review</strong>, inspect the HTTP status and reason below, then check the recipient’s WhatsApp before attempting a new send. An uncertain result is never automatically retried. Delivery labels require matching, verified upstream receipts; HTTP 200 only confirms gateway acceptance.</p>
 </main><?php ui_shell_end(); ?></body></html>
