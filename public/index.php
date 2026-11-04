@@ -281,23 +281,31 @@ if ($authed) {
           <a class="button button-ghost button-small" href="/wabridge/messages">View full log →</a>
         </div>
         <p class="panel-help">The status below is based on the PHP queue and matching upstream receipts—not on assumed WhatsApp delivery.</p>
-        <div class="table-scroll"><table>
-          <thead><tr><th>Job</th><th>Session</th><th>Recipient</th><th>Status</th><th>Updated (UTC)</th></tr></thead>
-          <tbody>
-            <?php foreach ($recentMessages as $message): ?>
-              <tr><td><a class="table-link" href="/wabridge/messages?id=<?= rawurlencode((string)$message['id']) ?>"><?= escape(substr((string)$message['id'],0,12)) ?>…</a></td>
-                  <td><?= escape((string)$message['session_id']) ?></td>
-                  <td><?= escape(message_log_mask_recipient((string)$message['destination'])) ?></td>
-                  <td><span class="subtle-tag <?= in_array($message['effective_state'],['delivered','read'],true)?'tag-success':'' ?>"><?= escape(message_log_status_text((string)$message['effective_state'])) ?></span></td>
-                  <td><?= escape(message_log_time((int)$message['updated_at'])) ?></td></tr>
-            <?php endforeach; ?>
-            <?php if (!$recentMessages): ?><tr><td colspan="5" class="empty-cell">No messages recorded yet. Queue a test message to start tracking.</td></tr><?php endif; ?>
-          </tbody>
-        </table></div>
+        <div class="activity-feed" role="list" aria-label="Recent message events">
+          <?php foreach ($recentMessages as $message): ?>
+            <?php $state=(string)$message['effective_state']; ?>
+            <a class="activity-item" role="listitem" href="/wabridge/messages?id=<?= rawurlencode((string)$message['id']) ?>">
+              <span class="activity-avatar" aria-hidden="true"><?= ui_icon('messages') ?></span>
+              <span class="activity-details">
+                <strong><?= escape((string)$message['session_id']) ?> <span class="activity-recipient">· <?= escape(message_log_mask_recipient((string)$message['destination'])) ?></span></strong>
+                <small><?= escape(message_log_time((int)$message['updated_at'])) ?></small>
+              </span>
+              <span class="activity-state <?= in_array($state,['delivered','read'],true)?'activity-state-success':'' ?>"><?= escape(message_log_status_text($state)) ?></span>
+            </a>
+          <?php endforeach; ?>
+          <?php if (!$recentMessages): ?>
+          <div class="activity-empty">
+            <span class="activity-avatar" aria-hidden="true"><?= ui_icon('messages') ?></span>
+            <strong>No message activity yet</strong>
+            <p>Send your first test message to begin tracking the queue, gateway response and any verified receipt.</p>
+            <a href="/wabridge/messaging">Compose a test message →</a>
+          </div>
+          <?php endif; ?>
+        </div>
       </section>
       <?php endif; ?>
       <?php if ($view==='overview'): ?></div><?php endif; ?>
-      <?php if (in_array($view,['overview','api-applications'],true)): ?>
+      <?php if ($view==='api-applications'): ?>
       <details class="ops-collapse" id="integrations" <?= $view==='api-applications'?'open':'' ?>><summary><span>API applications<span class="ops-caption">Developer credentials and scoped integration access</span></span></summary>
       <section class="glass-panel workspace-section" aria-labelledby="api-title">
         <div class="panel-heading"><div><div class="eyebrow">DEVELOPER PLATFORM</div><h2 id="api-title">API applications</h2></div><span class="soft-icon" aria-hidden="true">{ }</span></div>
