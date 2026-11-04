@@ -152,6 +152,8 @@ $collection=match($module){
     default=>null,
 };
 $listing=['rows'=>[],'page'=>$page,'has_next'=>false];
+$allowedSessions=array_values(array_filter((array)(config()['allowed_sessions']??[]),static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
+$allowedSessions=array_slice($allowedSessions,0,100);
 $contacts=[];$templates=[];
 try{
     if($collection!==null)$listing=platform_page($collection,$page,10,$search);
@@ -175,7 +177,27 @@ try{
                 array_unshift($templates,$chosen);
         }
     }
-}catch(Throwable $e){$error='Cannot load module records. Review private storage.';}
+}catch(InvalidArgumentException $e){$error=$e->getMessage();}
+catch(Throwable $e){$error='Cannot load module records. Review private storage.';}
+/**
+ * Use locally configured session scope: no Rust status requests on page load.
+ * When unrestricted, retain the existing session-ID input and guide users to
+ * Linked sessions rather than inventing device availability.
+ */
+function platform_session_field(array $allowed,string $title='WhatsApp session'):void { ?>
+<div class="field">
+  <label><?= escape($title) ?>
+  <?php if($allowed): ?>
+  <select name="session_id" required><option value="">Select authorized session</option>
+  <?php foreach($allowed as $sid): ?><option value="<?= escape($sid) ?>"><?= escape($sid) ?></option><?php endforeach;?>
+  </select>
+  <?php else: ?>
+  <input name="session_id" maxlength="64" pattern="[a-zA-Z0-9_-]{1,64}" placeholder="Session ID" required>
+  <?php endif; ?>
+  </label>
+  <small class="platform-help">Use a connected account from <a href="/wabridge/sessions">Linked sessions</a>; status is checked before sending.</small>
+</div>
+<?php }
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title><?= escape($pages[$module][0]) ?> · WaBridge</title>
@@ -235,24 +257,27 @@ try{
 </form></section>
 <?php elseif($module==='schedules'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P1 / SCHEDULED QUEUE</div><h2>Schedule one consented text</h2></div></div>
+<?php if(!$contacts):?><p class="notice notice-warning">No opted-in contact is selected. <a href="/wabridge/contacts">Search or add a consented contact</a> before scheduling.</p><?php endif;?>
+<?php if(!$templates):?><p class="notice notice-warning">No recent templates available. <a href="/wabridge/templates">Create or choose a template</a> first.</p><?php endif;?>
 <form method="post" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="schedule_create">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_schedule_nonce']??=bin2hex(random_bytes(24))) ?>">
 <div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedContactId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label>
 <small class="platform-help">Showing recent contacts. <a href="/wabridge/contacts">Search all contacts</a> to select an older record.</small></div>
 <div class="field"><label>Text template<select name="template_id" required><option value="">Select template</option><?php foreach($templates as $row):?><option value="<?= escape($row['id']) ?>" <?= $selectedTemplateId===$row['id']?'selected':'' ?>><?= escape($row['name']) ?></option><?php endforeach;?></select></label><small class="platform-help">Showing recent templates. <a href="/wabridge/templates">Choose an older template</a> from its record.</small></div>
-<div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Connected session'); ?>
 <div class="field"><label>Send time — UTC<input type="datetime-local" name="send_at" required></label></div>
 <div class="field full platform-help">1 minute to 30 days in advance. Requires the separate PHP CLI worker. Consent is checked again at dispatch.</div>
 <div class="platform-button-row"><button class="button button-primary" type="submit" <?= !$contacts||!$templates?'disabled':'' ?>>Create scheduled job</button></div>
 </form></section>
 <?php elseif($module==='media'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P1 / MEDIA</div><h2>Send one media message</h2></div></div>
+<?php if(!$contacts):?><p class="notice notice-warning">No opted-in contact is selected. <a href="/wabridge/contacts">Search or add a consented contact</a>; this form cannot send without consent.</p><?php endif;?>
 <form method="post" enctype="multipart/form-data" class="platform-form-grid">
 <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="media_send">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_media_nonce']??=bin2hex(random_bytes(24))) ?>">
 <div class="field"><label>Opted-in contact<select name="contact_id" required><option value="">Select contact</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
-<div class="field"><label>Connected session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Connected session'); ?>
 <div class="field"><label>Media type<select name="media_type"><option value="image">Image</option><option value="document">Document</option><option value="audio">Audio</option><option value="video">Video</option></select></label></div>
 <div class="field"><label>Upload file (max 1 MiB)<input type="file" name="media_file" required></label></div>
 <div class="field full"><label>Caption (not available for audio)<input name="caption" maxlength="300"></label></div>
@@ -262,7 +287,7 @@ try{
 <?php elseif($module==='automation'):?>
 <section class="glass-panel workspace-section"><div class="panel-heading"><div><div class="eyebrow">P3 / RULE BUILDER</div><h2>Keyword workflow — review only</h2></div></div>
 <form method="post" class="platform-form-grid"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="rule_create">
-<div class="field"><label>Session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions); ?>
 <div class="field"><label>Incoming keyword<input name="keyword" maxlength="80" required></label></div>
 <div class="field full"><label>Suggested reply<textarea name="suggestion" maxlength="800" rows="3" required></textarea></label></div>
 <div class="platform-button-row"><button class="button button-primary">Save review-only rule</button></div>
@@ -319,7 +344,7 @@ try{
 <p class="platform-help">A secure operator submits credentials directly to the private Rust engine. WaBridge PHP does not write the tokens into its metadata store. Enable <code>enable_official_cloud_connect</code> only after reviewing Meta setup and runtime protection.</p>
 <form method="post" class="platform-form-grid" autocomplete="off"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="cloud_connect">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_cloud_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Existing session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Existing Cloud session'); ?>
 <div class="field"><label>WABA ID<input name="waba_id" pattern="[0-9]{8,25}" required></label></div>
 <div class="field"><label>Phone number ID<input name="phone_number_id" pattern="[0-9]{8,25}" required></label></div>
 <div class="field"><label>Access token<input type="password" name="access_token" required></label></div>
@@ -330,7 +355,7 @@ try{
 <h2>Send an approved Meta template</h2>
 <form method="post" class="platform-form-grid"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="cloud_template">
 <input type="hidden" name="nonce" value="<?= escape($_SESSION['platform_cloud_nonce']??=bin2hex(random_bytes(24))) ?>">
-<div class="field"><label>Official session ID<input name="session_id" maxlength="64" required></label></div>
+<?php platform_session_field($allowedSessions,'Official Cloud session'); ?>
 <div class="field"><label>Opted-in recipient<select name="contact_id" required><option value="">Choose</option><?php foreach($contacts as $row):?><option value="<?= escape($row['id']) ?>"><?= escape($row['name']) ?> · <?= escape(substr($row['phone'],-4)) ?></option><?php endforeach;?></select></label></div>
 <div class="field"><label>Approved template name<input name="template_name" pattern="[a-z0-9_]{1,90}" required></label></div>
 <div class="field"><label>Language code<input name="language_code" value="en_US" maxlength="5" required></label></div>
