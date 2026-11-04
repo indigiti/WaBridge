@@ -4,12 +4,8 @@ $root=dirname(__DIR__);
 $path=$root.'/release';
 $required=[
  'public/index.php','public/_loader.php','public/.htaccess',
- 'public/assets/wabridge-ui-v5.css',
- 'public/assets/wabridge-premium-v2.css',
- 'public/assets/wabridge-console-v3.css',
+ 'public/assets/wabridge-ui-v6.css',
  'public/assets/wabridge-console-v3.js',
- 'public/assets/wabridge-glass-v4.css',
- 'public/assets/wabridge-typography-v5.css',
  'public/assets/fonts/inter-latin-400.woff2',
  'public/assets/fonts/inter-latin-600.woff2',
  'public/assets/fonts/inter-latin-700.woff2',
@@ -45,13 +41,22 @@ $manifest=json_decode((string)file_get_contents($path.'/private/build/release.js
 if(($manifest['schema']??'')!=='WABRIDGE-BUILD/1'||($manifest['name']??'')!=='WaBridge')
     throw new RuntimeException('Invalid DigiOps release manifest');
 $index=(string)file_get_contents($path.'/public/index.php');
-if(!str_contains($index,'wabridge-ui-v5.css') ||
-   str_contains($index,'<link rel="stylesheet" href="/wabridge/assets/wabridge-premium-v2.css'))
-    throw new RuntimeException('Single CSS bundle not in use');
-$bundle=(string)file_get_contents($path.'/public/assets/wabridge-ui-v5.css');
-if(strlen($bundle)<25000||!str_contains($bundle,'@font-face')||
-   !str_contains($bundle,'--wb-h1')||!str_contains($bundle,'console-sidebar'))
-    throw new RuntimeException('Generated Inter UI stylesheet incomplete');
+if(!str_contains($index,'wabridge-ui-v6.css'))
+    throw new RuntimeException('Canonical design v6 link is missing');
+$bundle=(string)file_get_contents($path.'/public/assets/wabridge-ui-v6.css');
+foreach(['@font-face','.console-hero','.console-overview-grid','.activity-feed',
+         '.glass-panel','.console-sidebar','--glass:rgba(',
+         '@media(max-width:760px)','prefers-reduced-transparency'] as $design) {
+    if(!str_contains($bundle,$design))
+        throw new RuntimeException('Incomplete design v6: '.$design);
+}
+if(strlen($bundle)<15000)
+    throw new RuntimeException('Incomplete unified premium design stylesheet');
+foreach(['wabridge-premium-v2.css','wabridge-console-v3.css','wabridge-glass-v4.css',
+         'wabridge-typography-v5.css','wabridge-design-v6.css','wabridge-ui-v5.css'] as $legacy) {
+    if(is_file($path.'/public/assets/'.$legacy))
+        throw new RuntimeException('Legacy CSS or source stylesheet was published: '.$legacy);
+}
 if(!str_contains((string)file_get_contents($path.'/public/assets/fonts/OFL.txt'),'SIL OPEN FONT LICENSE'))
     throw new RuntimeException('Inter font license missing');
 foreach([400,600,700] as $weight) {
