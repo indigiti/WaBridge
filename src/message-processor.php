@@ -18,28 +18,44 @@ function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string
     if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
         throw new InvalidArgumentException('Invalid queued job ID');
     if($sender===null||$probe!==null) {
-        $candidate=storage_queued_job($db,$jobId);
-        if($candidate===null)return null;
-        $jobId=(string)$candidate['id'];
-        $sid=(string)$candidate['session_id'];
-        if(!permitted_session($sid))
-            return ['id'=>$jobId,'state'=>'blocked','http'=>0,'reason'=>'session_not_authorized'];
-        try {
-            $state=$probe!==null?$probe($sid):session_state($sid);
-            if(($state['http']??null)!==200 ||
-               empty($state['is_logged_in']) ||
-               empty($state['socket_alive'])) {
-                return [
-                    'id'=>$jobId,'state'=>'blocked',
+        // Explicit browser sends examine only the selected job. The CLI
+        // worker examines one oldest job per session, so a disconnected
+        // account cannot permanently block another healthy account.
+        $candidates=$jobId!==null
+            ? array_values(array_filter([storage_queued_job($db,$jobId)]))
+            : storage_queued_candidates($db,4);
+        if(!$candidates)return null;
+        $blocked=null;$chosen=null;
+        foreach($candidates as $candidate) {
+            $sid=(string)$candidate['session_id'];
+            $id=(string)$candidate['id'];
+            if(!permitted_session($sid)) {
+                $blocked??=['id'=>$id,'state'=>'blocked','http'=>0,
+                    'reason'=>'session_not_authorized'];
+                continue;
+            }
+            try {
+                $state=$probe!==null?$probe($sid):session_state($sid);
+                if(($state['http']??null)===200 &&
+                    !empty($state['is_logged_in']) &&
+                    !empty($state['socket_alive'])) {
+                    $chosen=$id;
+                    break;
+                }
+                $blocked??=[
+                    'id'=>$id,'state'=>'blocked',
                     'http'=>(int)($state['http']??0),
                     'reason'=>($state['http']??null)===200
                         ? 'session_disconnected' : 'session_status_unavailable'
                 ];
+            } catch(Throwable $e) {
+                error_log('WaBridge queue preflight '.get_class($e));
+                $blocked??=['id'=>$id,'state'=>'blocked','http'=>0,
+                    'reason'=>'session_status_unavailable'];
             }
-        } catch(Throwable $e) {
-            error_log('WaBridge queue preflight '.get_class($e));
-            return ['id'=>$jobId,'state'=>'blocked','http'=>0,'reason'=>'session_status_unavailable'];
         }
+        if($chosen===null)return $blocked;
+        $jobId=$chosen;
     }
     // Claim by exact ID when selected to avoid dispatching an unrelated
     // queue record between session preflight and the atomic claim.
