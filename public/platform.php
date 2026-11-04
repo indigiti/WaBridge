@@ -64,6 +64,10 @@ try{
                 (string)($_POST['template_id']??''),(string)($_POST['session_id']??''),
                 $when->getTimestamp());
             $notice='Scheduled job '.$row['job_id'].' queued for '.gmdate('Y-m-d H:i',$row['send_at']).' UTC. No WhatsApp delivery is implied.';
+        }elseif($action==='schedule_cancel'&&$module==='schedules'){
+            if(!platform_schedule_cancel((string)($_POST['schedule_id']??'')))
+                throw new InvalidArgumentException('Cannot cancel a claimed or completed job; check message trace');
+            $notice='Scheduled job cancelled before any send attempt.';
         }elseif($action==='rule_create'&&$module==='automation'){
             $row=platform_rule_create((string)($_POST['session_id']??''),
                 (string)($_POST['keyword']??''),(string)($_POST['suggestion']??''));
@@ -294,6 +298,14 @@ try{
 <td><?php if($module==='contacts'):?>
 <?= !empty($row['consented'])?'Consented':'Opted out' ?>
 <?php if(!empty($row['consented'])):?><form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="contact_revoke"><input type="hidden" name="contact_id" value="<?= escape($row['id']) ?>"><button type="submit" class="button button-ghost button-small">Withdraw consent</button></form><?php endif;?>
+<?php elseif($module==='schedules'):?>
+<?php if(($row['status']??'')==='cancelled'):?>Cancelled
+<?php else:?>
+<form method="post"><input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
+<input type="hidden" name="action" value="schedule_cancel">
+<input type="hidden" name="schedule_id" value="<?= escape((string)$row['id']) ?>">
+<button type="submit" class="button button-ghost button-small">Cancel if still queued</button></form>
+<?php endif;?>
 <?php elseif($module==='media'):?><?= escape((string)$row['state']) ?> · Delivery unknown
 <?php elseif($module==='automation'):?>Manual review only
 <?php elseif($module==='workspaces'):?>Configuration only

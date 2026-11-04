@@ -17,7 +17,7 @@ function storage_message_page(int $page=1,int $perPage=25,string $status='',stri
     $perPage=max(1,min(50,$perPage));
     if($jobId!==''&&!valid_job_id($jobId))throw new InvalidArgumentException('Invalid message ID');
     if($session!==''&&!valid_session_id($session))throw new InvalidArgumentException('Invalid session');
-    $valid=['','queued','processing','accepted','sent','delivered','read','failed','needs_review'];
+    $valid=['','queued','processing','accepted','sent','delivered','read','failed','needs_review','cancelled'];
     if(!in_array($status,$valid,true))throw new InvalidArgumentException('Invalid delivery status');
     $offset=($page-1)*$perPage;
     $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
@@ -156,7 +156,7 @@ function storage_message_timeline(string $id):array {
  */
 function storage_message_status_counts():array {
     $counts=array_fill_keys(['queued','processing','accepted','sent','delivered',
-        'read','failed','needs_review','unknown'],0);
+        'read','failed','needs_review','cancelled','unknown'],0);
     $allowed=array_values(array_filter((array)(config()['allowed_sessions']??[]),
         static fn(mixed $sid):bool=>is_string($sid)&&valid_session_id($sid)));
     $db=store();

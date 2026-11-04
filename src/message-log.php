@@ -11,7 +11,7 @@ function message_log_effective_status(array $row): string {
     $receiptState=(string)($receipt['state']??'');
     if ($job==='accepted' && in_array($receiptState,['sent','delivered','read','failed'],true))
         return $receiptState;
-    return in_array($job,['queued','processing','accepted','needs_review'],true) ? $job : 'unknown';
+    return in_array($job,['queued','processing','accepted','needs_review','cancelled'],true) ? $job : 'unknown';
 }
 function message_log_status_text(string $state): string {
     return match($state) {
@@ -23,6 +23,7 @@ function message_log_status_text(string $state): string {
         'read'=>'Read — verified receipt',
         'failed'=>'Failed — verified receipt',
         'needs_review'=>'Needs review — do not auto-retry',
+        'cancelled'=>'Cancelled before dispatch',
         default=>'Unknown',
     };
 }

@@ -93,3 +93,50 @@ function platform_schedule(string $contactId,string $templateId,string $session,
     audit_event('scheduled_message_created','admin',$out['id'],['send_at'=>$when]);
     return $row;
 }
+
+/** Atomic, queue-only cancellation; an attempted send can never be cancelled. */
+function platform_schedule_cancel(string $scheduleId):bool {
+    $record=platform_find('outbox',$scheduleId);
+    if(!$record)return false;
+    $jobId=(string)($record['job_id']??'');
+    if(!valid_job_id($jobId))return false;
+    $db=store();$now=time();$cancelled=false;
+    if($db instanceof JsonStore) {
+        $cancelled=$db->mutate(static function(array &$s)use($jobId,$now):bool {
+            if(!isset($s['jobs'][$jobId])||$s['jobs'][$jobId]['state']!=='queued'
+               ||($s['jobs'][$jobId]['client_id']??'')!=='scheduler')return false;
+            $s['jobs'][$jobId]['state']='cancelled';
+            $s['jobs'][$jobId]['updated_at']=$now;
+            $s['timeline'][$jobId]??=[];
+            $s['timeline'][$jobId][]=[
+                'guid'=>wabridge_guid(),'state'=>'cancelled','proof'=>'operator_cancel','at'=>$now
+            ];
+            return true;
+        });
+    }else{
+        $db->exec('BEGIN IMMEDIATE');
+        try {
+            $stmt=$db->prepare("UPDATE jobs SET state='cancelled',updated_at=? WHERE id=? AND client_id='scheduler' AND state='queued'");
+            $stmt->execute([$now,$jobId]);
+            $cancelled=$stmt->rowCount()===1;
+            if($cancelled){
+                $trace=$db->prepare('INSERT INTO message_timeline(guid,job_id,state,proof,at) VALUES(?,?,?,?,?)');
+                $trace->execute([wabridge_guid(),$jobId,'cancelled','operator_cancel',$now]);
+            }
+            $db->commit();
+        }catch(Throwable $e){
+            if($db->inTransaction())$db->rollBack();
+            throw $e;
+        }
+    }
+    if($cancelled){
+        platform_state_io(true,static function(array &$s)use($scheduleId):void{
+            if(isset($s['outbox'][$scheduleId])){
+                $s['outbox'][$scheduleId]['status']='cancelled';
+                $s['outbox'][$scheduleId]['updated_at']=time();
+            }
+        });
+        audit_event('scheduled_message_cancelled','admin',$jobId);
+    }
+    return $cancelled;
+}
