@@ -206,6 +206,26 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,t
 .console-hero-status strong{display:flex;gap:9px;align-items:center;font-size:19px;color:white;font-weight:700;letter-spacing:-.03em;margin:5px 0}
 .console-hero-status small{font-size:11px;color:#d3d9f2}
 .console-hero-status .live-dot{background:#64ebc5;box-shadow:0 0 0 5px rgba(100,235,197,.15)}
+/* Activity feed, purposeful empty states */
+.console-hero-actions svg{width:16px;height:16px;flex:0 0 16px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.activity-feed{display:grid;gap:0;min-width:0}
+.activity-item{display:flex;align-items:center;gap:12px;padding:15px 2px;border-bottom:1px solid rgba(153,180,222,.20);color:inherit;min-width:0}
+.activity-item:last-child{border-bottom:0}
+.activity-item:hover{background:rgba(255,255,255,.30)}
+.activity-avatar{height:40px;width:40px;flex:0 0 40px;display:grid;place-items:center;
+ border-radius:13px;background:linear-gradient(130deg,#ecf2ff,#e0ebff);color:#516bd7}
+.activity-avatar svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.activity-details{flex:1;min-width:0}
+.activity-details strong{display:block;font-size:12px;font-weight:700;color:#28395b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.activity-recipient{font-size:11px;color:#8b9ab2;font-weight:400}
+.activity-details small{display:block;font-size:10px;color:#92a0b4;margin-top:3px}
+.activity-state{flex:0 0 auto;max-width:44%;font-size:10px;font-weight:700;color:#94713a;text-align:right;line-height:1.4}
+.activity-state-success{color:#0f916f}
+.activity-empty{padding:28px 20px 24px;display:grid;justify-items:center;text-align:center}
+.activity-empty .activity-avatar{margin-bottom:14px}
+.activity-empty strong{font-size:14px;color:#334566}
+.activity-empty p{font-size:12px;line-height:1.7;color:#8290a9;max-width:350px;margin:8px 0 13px}
+.activity-empty a{font-size:12px;font-weight:700}
 /* Content blocks, controls, tables */
 .console-info-banner{display:flex;align-items:center;gap:12px;background:rgba(233,241,255,.65);
  border:1px solid rgba(133,159,209,.23);padding:13px 17px;border-radius:14px;color:#536c94;font-size:12px;margin-bottom:24px}
