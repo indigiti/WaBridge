@@ -53,7 +53,7 @@ try {
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Message Activity - WaBridge</title>
-  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v5.css?v=5">
+  <link rel="stylesheet" href="/wabridge/assets/wabridge-ui-v6.css?v=6">
 <script src="/wabridge/assets/wabridge-console-v3.js?v=2" defer></script>
 </head><body class="dashboard-page message-log-page">
 <?php ui_shell_start('messages'); ?>
