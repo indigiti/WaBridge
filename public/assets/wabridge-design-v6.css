@@ -354,6 +354,7 @@ tbody tr:hover td{background:rgba(255,255,255,.52)}
  .brand-copy small{font-size:9px}
  .header-caption,.console-user{display:none}
  .workspace-top{align-items:flex-start}
+ .workspace-chip,.section-subtitle{display:none}
  .workspace-top h1{font-size:31px}
  .stats-grid,.readiness-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .console-hero{grid-template-columns:1fr;padding:28px;gap:22px}
