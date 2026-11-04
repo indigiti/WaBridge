@@ -62,9 +62,13 @@ function store(): PDO|JsonStore {
       FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
     )');
     $pdo->exec('CREATE TABLE IF NOT EXISTS audit_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, guid TEXT, event TEXT NOT NULL,
       actor TEXT NOT NULL, target TEXT, at INTEGER NOT NULL, details TEXT NOT NULL DEFAULT "{}"
     )');
+    // Existing rows retain their numeric internal ID. New events get a GUID.
+    $auditColumns=array_column($pdo->query('PRAGMA table_info(audit_entries)')->fetchAll(),'name');
+    if(!in_array('guid',$auditColumns,true))$pdo->exec('ALTER TABLE audit_entries ADD COLUMN guid TEXT');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS ix_audit_guid ON audit_entries(guid) WHERE guid IS NOT NULL');
     $pdo->exec('CREATE INDEX IF NOT EXISTS ix_audit_at ON audit_entries(at)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS quotas (
       client_id TEXT NOT NULL, bucket INTEGER NOT NULL, used INTEGER NOT NULL,
@@ -215,8 +219,8 @@ function complete_job(PDO|JsonStore $db, string $id, string $state, int $code, s
 function audit_event(string $event,string $actor,string $target='',array $details=[]): void {
     // Never include plaintext messages, passwords, tokens or QR secrets.
     if (store() instanceof JsonStore) { store()->audit($event,$actor,$target,$details); return; }
-    $q=store()->prepare('INSERT INTO audit_entries(event,actor,target,at,details) VALUES(?,?,?,?,?)');
-    $q->execute([$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
+    $q=store()->prepare('INSERT INTO audit_entries(guid,event,actor,target,at,details) VALUES(?,?,?,?,?,?)');
+    $q->execute([wabridge_guid(),$event,substr($actor,0,96),substr($target,0,128),time(),json_encode($details,JSON_THROW_ON_ERROR)]);
 }
 function record_provider_message(PDO|JsonStore $db,string $jobId,string $providerId): void {
     if ($providerId==='' || strlen($providerId)>200) return;
@@ -237,3 +241,4 @@ function update_receipt_from_event(PDO|JsonStore $db,string $eventId,array $even
 }
 
 require_once __DIR__.'/storage-services.php';
+require_once __DIR__.'/audit-reader.php';

@@ -281,7 +281,7 @@ final class JsonStore {
     }
     public function audit(string $event,string $actor,string $target,array $details): void {
         $this->mutate(static function(array &$s)use($event,$actor,$target,$details) {
-            $s['audit'][]=['event'=>$event,'actor'=>substr($actor,0,96),'target'=>substr($target,0,128),'at'=>time(),'details'=>$details];
+            $s['audit'][]=['guid'=>wabridge_guid(),'event'=>$event,'actor'=>substr($actor,0,96),'target'=>substr($target,0,128),'at'=>time(),'details'=>$details];
             if (count($s['audit'])>500) $s['audit']=array_slice($s['audit'],-500);
         });
     }
@@ -386,7 +386,7 @@ final class JsonStore {
                 'receipts'=>self::groups($s['receipts'],'state'),
                 'event_types'=>self::groups($s['events'],'event_type'),
                 'api_clients'=>array_slice($clients,0,100),
-                'audit'=>array_slice(array_reverse(array_map(static fn($x)=>array_intersect_key($x,array_flip(['event','actor','target','at'])),$s['audit'])),0,50),
+                'audit'=>array_slice(array_reverse(array_map(static fn($x)=>array_intersect_key($x,array_flip(['guid','event','actor','target','at'])),$s['audit'])),0,10),
             ];
         });
     }
