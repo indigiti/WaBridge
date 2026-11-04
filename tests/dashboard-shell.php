@@ -87,7 +87,7 @@ requireParts($read('public/assets/wabridge-design-v6.css'),[
 requireParts($msg,[
     'require_admin_html_page()','assert_csrf()','process_next_message',
     'storage_message_page','message_log_effective_status','escape(',
-    "ui_shell_start('messages')",'wabridge-ui-v6.css'
+    "ui_shell_start('messages')",'ui_head_assets()'
 ],'Message log');
 foreach([
     'public/audit.php','public/diagnostics-view.php','public/gateway-settings.php',

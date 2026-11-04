@@ -77,3 +77,22 @@ Never interpret successful CI, gateway HTTP acceptance or a watchdog 'connected'
 ### Queue write amplification
 
 The queued checkpoint comes from the existing persisted `jobs.created_at` field and uses the job UUID as its reference. Subsequent actual worker/gateway/receipt transitions are journalled with independent UUIDs. This avoids an extra synchronous timeline INSERT per message while keeping old recorded events and old IDs intact. Benchmarks on GitHub CI measure SQLite enqueue only; they are not live WhatsApp throughput.
+
+## Protected HTML deep links and styled sign-in
+
+All browser-only protected routes, including /wabridge/media, require an
+authenticated administrator. Signed-out GET/HEAD requests open the existing
+styled /wabridge/sign-in screen and preserve a validated same-app return
+destination. On successful login the user returns to the intended page.
+External/unknown return URLs and tracking parameters are never trusted.
+
+The WABRIDGESESSID cookie is HttpOnly, limited to /wabridge/, Secure on
+HTTPS and SameSite=Lax. This supports top-level links from ChatGPT and other
+sites while retaining CSRF protection. Expired form POSTs are never replayed:
+the operator signs in and deliberately resubmits the action. JSON/API
+authorization responses are unchanged.
+
+A local HTTP regression test reproduces a tagged Media URL, verifies the
+sign-in redirect and login completion, and confirms Media renders without
+making any Rust/WhatsApp request. Cloudways must deploy the new artifact
+before these changes become live.
