@@ -14,10 +14,10 @@ declare(strict_types=1);
  * $sender can be injected by deterministic tests; in this case there is
  * no real network preflight.
  */
-function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string $jobId=null): ?array {
+function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string $jobId=null, ?callable $probe=null): ?array {
     if($jobId!==null&&!preg_match('/\A[a-f0-9]{32}\z/D',$jobId))
         throw new InvalidArgumentException('Invalid queued job ID');
-    if($sender===null) {
+    if($sender===null||$probe!==null) {
         $candidate=storage_queued_job($db,$jobId);
         if($candidate===null)return null;
         $jobId=(string)$candidate['id'];
@@ -25,7 +25,7 @@ function process_next_message(PDO|JsonStore $db, ?callable $sender=null, ?string
         if(!permitted_session($sid))
             return ['id'=>$jobId,'state'=>'blocked','http'=>0,'reason'=>'session_not_authorized'];
         try {
-            $state=session_state($sid);
+            $state=$probe!==null?$probe($sid):session_state($sid);
             if(($state['http']??null)!==200 ||
                empty($state['is_logged_in']) ||
                empty($state['socket_alive'])) {
