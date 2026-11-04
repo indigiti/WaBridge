@@ -58,6 +58,48 @@ def replace_file(root: Path, path: str, old: str, new: str) -> None:
     file.write_text(updated)
 
 
+
+def optimize_media_send_buffers(root: Path) -> None:
+    """Move owned media buffers into uploads; preserve the protobuf file length.
+
+    Image, video, audio, document and sticker paths previously cloned their
+    complete Vec<u8> for Client::upload and only used the source to read len.
+    Avoiding that copy reduces peak temporary memory by up to one media payload.
+    Fail closed if any one of the five original patterns changes upstream.
+    """
+    path = root / "src/api/shared/messages/handlers/media.rs"
+    source = path.read_text()
+    variants = (
+        ("image", "mimetype", "Image"),
+        ("video", "mimetype", "Video"),
+        ("audio", "mimetype", "Audio"),
+        ("document", "mimetype", "Document"),
+        ("sticker", "_mimetype", "Sticker"),
+    )
+    for kind, mimetype, media_type in variants:
+        old = (
+            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\\n\\n"
+            f"    let upload = client\\n        .upload(\\n"
+            f"            data.clone(),\\n"
+            f"            wacore::download::MediaType::{media_type},"
+        )
+        new = (
+            f"    let (data, {mimetype}) = get_media_data(&request.{kind}).await?;\\n"
+            f"    let media_len = data.len();\\n\\n"
+            f"    let upload = client\\n        .upload(\\n"
+            f"            data,\\n"
+            f"            wacore::download::MediaType::{media_type},"
+        )
+        source = replace_exact(source, old, new, context=f"{kind} upload without clone")
+    old_length = "file_length: Some(data.len() as u64),"
+    if source.count(old_length) != len(variants):
+        raise ValueError("media protobuf length expressions changed upstream")
+    source = source.replace(old_length, "file_length: Some(media_len as u64),")
+    if "data.clone()," in source:
+        raise ValueError("additional cloned media payloads need manual audit")
+    path.write_text(source)
+
+
 def extract_event_summary(root: Path) -> None:
     path = root / "src/console/handlers.rs"
     content = path.read_text()
@@ -218,6 +260,7 @@ swagger-ui = ["dep:utoipa-swagger-ui"]
         '    #[cfg(feature = "embedded-console")]\n    if crate::console::is_console_path(path) {',
     )
     gate_main_router(root)
+    optimize_media_send_buffers(root)
 
     for path in REUSABLE_LIVE_LOOKUP_PATHS:
         replace_file(root, path, LIVE_LOOKUP, DELEGATED_LOOKUP)
