@@ -46,7 +46,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log','trace'=>'Message trace',
         'contacts'=>'Contacts','templates'=>'Templates','schedules'=>'Schedules','media'=>'Media messages',
         'automation'=>'Automation','developer-tools'=>'API tools','security-center'=>'Security',
-        'workspaces'=>'Workspaces','cloud-api'=>'Official Cloud API','account-admin'=>'Multi-account preview','webhook-events'=>'Webhook events'
+        'workspaces'=>'Workspaces','cloud-api'=>'Official Cloud API','account-admin'=>'Multi-account preview','team-inbox'=>'Team Inbox · Simulation','webhook-events'=>'Webhook events'
     ];
     if(!isset($pageLabels[$page]))throw new InvalidArgumentException('Unknown console page');
     if(!admin_authenticated())throw new RuntimeException('Console requires administrator authentication');
@@ -63,6 +63,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         ['devices','/wabridge/devices','devices'],
         ['messaging','/wabridge/messaging','messaging'],
         ['messages','/wabridge/messages','messages'],
+        ['team-inbox','/wabridge/team-inbox','messages'],
         ['media','/wabridge/media','media'],
       ],
       'Contacts & Scheduling'=>[
