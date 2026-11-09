@@ -12,6 +12,9 @@ return [
     'enable_vnext_pilot_admin' => false,
     // Staging-only: permitted edits of synthetic team inbox data (no sends).
     'enable_vnext_inbox_preview' => false,
+    // Offline W4-W6 studios: synthetic workflows/campaigns/assistant/Flows only.
+    // Never enables an outbound worker or third-party API calls.
+    'enable_vnext_studio_preview' => false,
     // Staging-only synthetic webhook endpoint. Never enable on production.
     'enable_vnext_fixture_webhook' => false,
     'vnext_fixture_webhook_secret' => getenv('WABRIDGE_VNEXT_FIXTURE_SECRET') ?: '',
