@@ -15,6 +15,8 @@ return [
     // Offline W4-W6 studios: synthetic workflows/campaigns/assistant/Flows only.
     // Never enables an outbound worker or third-party API calls.
     'enable_vnext_studio_preview' => false,
+    // Scope-limited v2 preview JSON API; existing admin session + CSRF only.
+    'enable_vnext_preview_api' => false,
     // Staging-only synthetic webhook endpoint. Never enable on production.
     'enable_vnext_fixture_webhook' => false,
     'vnext_fixture_webhook_secret' => getenv('WABRIDGE_VNEXT_FIXTURE_SECRET') ?: '',
