@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 cd "$(dirname "$0")/.."
-if [[ -e config.php || -e runtime/json/state.json || -e runtime/platform/state.json ]]; then
+if [[ -e config.php || -e runtime/json/state.json || -e runtime/platform/state.json || -e runtime/vnext ]]; then
   echo "Refusing to modify a running/private WaBridge installation" >&2
   exit 2
 fi
@@ -12,6 +12,7 @@ cleanup(){
   rm -f config.php runtime/json/state.json runtime/json/state.lock \
     runtime/platform/state.json runtime/platform/state.lock
   rmdir runtime/json runtime/platform 2>/dev/null || true
+  rm -rf runtime/vnext
   rm -rf "$tmp"
 }
 trap cleanup EXIT
@@ -61,4 +62,17 @@ grep -q 'platform-context' "$tmp/media.html"
 if grep -q 'Sign in to WaBridge first' "$tmp/media.html"; then
   echo "Media route still renders plain 403" >&2; exit 1
 fi
+
+curl -sS -D "$tmp/account-anon.h" -o /dev/null \
+  "$base/wabridge/account-admin"
+grep -qE '^HTTP/1.1 302' "$tmp/account-anon.h"
+grep -qiF 'Location: /wabridge/sign-in?return=%2Fwabridge%2Faccount-admin' "$tmp/account-anon.h"
+curl -sS -c "$tmp/cookies" -b "$tmp/cookies" "$base/wabridge/account-admin" > "$tmp/account.html"
+grep -q 'Multi-account control center' "$tmp/account.html"
+grep -q 'Demo · Acme Admissions' "$tmp/account.html"
+grep -q 'Simulation only' "$tmp/account.html"
+if grep -q 'name="action" value="create_organization"' "$tmp/account.html"; then
+  echo "Provisioning form must be disabled by default" >&2; exit 1
+fi
+echo 'Anonymous account deep link → styled sign-in; authenticated synthetic read-only preview: PASS'
 echo 'Anonymous Media deep link → styled sign-in → authenticated Media: PASS'
