@@ -57,6 +57,8 @@ jobs:
         run: php tests/vnext-backup.php
       - name: W2 hashed scoped tenant API token authorization
         run: php tests/vnext-tenant-tokens.php
+      - name: W2 one-time invitation and pending membership activation boundary
+        run: php tests/vnext-invitations.php
       - name: W4-W6 authenticated offline studio HTTP journeys
         run: bash tests/vnext-studio-http-flow.sh
       - name: W4 visual builder JavaScript syntax
