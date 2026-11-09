@@ -2,6 +2,10 @@
 declare(strict_types=1);
 // Local test-only router for php -S, because .htaccess is Apache-specific.
 $path=(string)parse_url((string)($_SERVER['REQUEST_URI']??''),PHP_URL_PATH);
+if($path==='/wabridge/api/v2/preview.php'){
+    require dirname(__DIR__).'/public/api/v2/preview.php';
+    return true;
+}
 if(in_array(trim($path,'/'),[
   'wabridge/automation-studio','wabridge/campaign-manager',
   'wabridge/ai-assistant','wabridge/flows-studio'
