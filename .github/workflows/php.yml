@@ -54,6 +54,8 @@ jobs:
         run: php tests/vnext-inbox.php
       - name: W4-W6 offline automation, campaigns, AI review, and Flows
         run: php tests/vnext-studio.php
+      - name: W1 idempotent event projection and crash replay
+        run: php tests/vnext-projection.php
       - name: Validate safe runtime performance telemetry
         run: php tests/runtime-metrics.php
       - name: Render all glass console routes with authenticated menu
