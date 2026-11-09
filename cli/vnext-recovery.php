@@ -10,8 +10,9 @@ if(!VNextJsonStore::uuid($id)||count($argv)!==2){
     exit(2);
 }
 try {
-    $result=(new VNextRecovery(new VNextEventJournal(new VNextJsonStore())))
-        ->drain($id,20);
+    $store=new VNextJsonStore();
+    $result=(new VNextRecovery(new VNextEventJournal($store),
+        new VNextEventProjector($store)))->drain($id,20);
     echo 'Locally normalized: '.(int)$result['normalized']."\n";
 }catch(Throwable $e){
     error_log('WaBridge vNext recovery '.get_class($e));
