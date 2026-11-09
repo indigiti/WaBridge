@@ -82,7 +82,7 @@ $layout=(string)file_get_contents($path.'/private/src/ui-shell.php');
 foreach(['function ui_shell_start','function ui_shell_end','/wabridge/performance','/wabridge/verification'] as $fragment)
     if(!str_contains($layout,$fragment))throw new RuntimeException('Shared shell missing '.$fragment);
 $routes=(string)file_get_contents($path.'/public/.htaccess');
-foreach(['^messages/?,'^storage/?$','^qr/?$',
+foreach(['^messages/?$','^account-admin/?$','^gateway/?$','^storage/?$','^qr/?$',
          '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
          '^api/diagnostics/?$','^api/reports/?$'] as $route)
     if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
