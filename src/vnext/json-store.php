@@ -9,7 +9,7 @@ declare(strict_types=1);
 final class VNextJsonStore {
     private const MAX_BYTES = 2097152;
     private const MAX_RECORDS = 1000;
-    private const COLLECTIONS = ['identity', 'events', 'intents'];
+    private const COLLECTIONS = ['identity', 'events', 'intents', 'inbox'];
     private string $root;
 
     public function __construct(?string $root = null) {
@@ -33,7 +33,7 @@ final class VNextJsonStore {
         if ($collection === 'identity' && $scope !== 'system') {
             throw new InvalidArgumentException('Identity is system scoped');
         }
-        if (in_array($collection, ['events','intents'], true) && $scope === 'system') {
+        if (in_array($collection, ['events','intents','inbox'], true) && $scope === 'system') {
             throw new InvalidArgumentException('Events must be tenant scoped');
         }
         $parts = $scope === 'system' ? ['system'] : ['tenants', $scope];
