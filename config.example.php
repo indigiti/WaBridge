@@ -10,6 +10,8 @@ return [
     'enable_ai_drafts' => false,
     // Staging-only: allow existing authenticated admin to create disabled pilot records.
     'enable_vnext_pilot_admin' => false,
+    // Staging-only: permitted edits of synthetic team inbox data (no sends).
+    'enable_vnext_inbox_preview' => false,
     // Staging-only synthetic webhook endpoint. Never enable on production.
     'enable_vnext_fixture_webhook' => false,
     'vnext_fixture_webhook_secret' => getenv('WABRIDGE_VNEXT_FIXTURE_SECRET') ?: '',
