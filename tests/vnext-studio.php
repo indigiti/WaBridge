@@ -118,4 +118,13 @@ $store->mutate('system','identity',static function(array &$items)use($alpha):voi
     $items['organizations'][$alpha]['status']='active';
 });
 studioDeny(fn()=>$flows->list($alpha),'Active tenant not eligible for synthetic module');
+
+foreach(['automation-studio','campaign-manager','ai-assistant','flows-studio'] as $module) {
+    $examples=VNextDemo::studioExamples($module);
+    studioCheck(count($examples)===1 && ($examples[0]['id']??'')!=='',
+        'Static preview example provided for '.$module);
+    studioCheck(!str_contains(json_encode($examples,JSON_THROW_ON_ERROR),'919876543210'),
+        'Static example contains no rejected PII');
+}
+
 echo "W4-W6 offline graph, campaign consent, assistant review, Flows, tenant isolation PASS\n";
