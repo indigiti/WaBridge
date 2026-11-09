@@ -53,3 +53,30 @@
 - Backup/recovery, load/performance on Cloudways, multi-server tenancy, transactional database implementation, and commercial/compliance gates.
 
 Never classify a successful CI run, simulation, normalized fixture event or synthetic channel as evidence of real WhatsApp delivery.
+
+
+## Code-first development policy — no deployment until full feature acceptance
+
+The user has selected **finish the code before the next DigiOps deployment**. Feature branches may build and test code, but must not automatically publish a new Cloudways release. The current main baseline remains 8f1f26620aa30a1ee23a91c09b4d3ad4735269db.
+
+### W3 Shared Team Inbox — first code increment (offline, synthetic)
+
+- \`src/vnext/inbox.php\`: bounded private tenant JSON conversation collection with strict synthetic tenant guard; three fictional conversations; verified fixture channel identity; assignment to pending fictional team members; conversation status transitions; immutable fictional message history and fixed-option internal notes. Every mutation uses atomic per-tenant document replacement and optimistic per-conversation revisions.
+- \`public/team-inbox.php\` and \`/wabridge/team-inbox\`: authenticated premium dashboard view, default virtual read-only sample conversations without any runtime writes, isolated account selector, thread details, assignment and status/note forms only when private flag \`enable_vnext_inbox_preview=true\` and explicit synthetic seeding are in effect. No free-form reply composer exists.
+- \`tests/vnext-inbox.php\`: provider-free verification of seeding, scope, stale write rejection, out-of-tenant assignment rejection, fixed-note validation, no send side-effects, fail-closed access to active tenants and filesystem permissions.
+- Browser auth integration and both PHP/DigiOps workflows include W3 checks; the release package validator requires the route and private inbox module.
+
+**How to test safely:** In a fresh isolated checkout run \`php tests/vnext-inbox.php\`. In authenticated staging, the page is always a read-only fictional example. To persist interactions in a controlled staging instance only, enable \`enable_vnext_pilot_admin\`, seed three synthetic pilot accounts, and separately enable \`enable_vnext_inbox_preview\`. Never enter actual customer details; the note composer only accepts fixed fictional phrases.
+
+**What this is not:** It is not yet a live shared WhatsApp inbox. It does not ingest real inbound messages, send replies, subscribe to real channel events, implement actual per-user authentication, persist real contact data or coordinate external provider sending. Those requirements remain development gates, not deployment promises.
+
+### Remaining code-first phases
+
+1. W1/W2 real provider event correlation, channel ownership, durable transactional dispatch and production-appropriate tenant authentication.
+2. W3 live-eligible inbox ingestion and authorized reply composer behind strict policy gates.
+3. W4 visual workflow graph, publication, dry-run executor and recovery.
+4. W5 consent-safe campaign authoring, approval, pacing and simulated dispatch.
+5. W6 approved tenant knowledge, review-only AI assistance and supported WhatsApp Flow integration.
+6. Comprehensive CI/QA, security testing and documented rollback/retention; only then consider a controlled deploy, with provider-dependent live acceptance tested separately.
+
+All these items must be implemented and verified before making a claim that WaBridge's selected roadmap is complete.
