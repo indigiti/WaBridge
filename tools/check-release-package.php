@@ -93,36 +93,3 @@ if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8
 if(file_exists($path.'/public/waxum'))
     throw new RuntimeException('Rust executable must not be deployed to public HTML');
 echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
-,'^account-admin/?,'^storage/?$','^qr/?$',
-         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
-         '^api/diagnostics/?$','^api/reports/?$'] as $route)
-    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
-$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
-if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
-                (string)hash_file('sha256',$compat)))
-    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
-if(file_exists($path.'/public/waxum'))
-    throw new RuntimeException('Rust executable must not be deployed to public HTML');
-echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
-,'^gateway/?,'^storage/?$','^qr/?$',
-         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
-         '^api/diagnostics/?$','^api/reports/?$'] as $route)
-    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
-$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
-if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
-                (string)hash_file('sha256',$compat)))
-    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
-if(file_exists($path.'/public/waxum'))
-    throw new RuntimeException('Rust executable must not be deployed to public HTML');
-echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
-,'^storage/?$','^qr/?$',
-         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
-         '^api/diagnostics/?$','^api/reports/?$'] as $route)
-    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
-$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
-if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
-                (string)hash_file('sha256',$compat)))
-    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
-if(file_exists($path.'/public/waxum'))
-    throw new RuntimeException('Rust executable must not be deployed to public HTML');
-echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
