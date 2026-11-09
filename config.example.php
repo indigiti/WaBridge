@@ -17,6 +17,9 @@ return [
     'enable_vnext_studio_preview' => false,
     // Scope-limited v2 preview JSON API; existing admin session + CSRF only.
     'enable_vnext_preview_api' => false,
+    // W2 member sign-in / read-only channel portal. Default OFF until
+    // audited tenant activation and security review; no send capability.
+    'enable_vnext_tenant_login' => false,
     // Staging-only synthetic webhook endpoint. Never enable on production.
     'enable_vnext_fixture_webhook' => false,
     'vnext_fixture_webhook_secret' => getenv('WABRIDGE_VNEXT_FIXTURE_SECRET') ?: '',
