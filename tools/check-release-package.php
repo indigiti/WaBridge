@@ -18,6 +18,7 @@ $required=[
  'public/api/send.php','public/api/v1/messages.php',
  'public/api/v1/capabilities.php','public/api/v1/batches.php',
  'private/src/store.php','private/src/bootstrap.php','private/src/json-store.php',
+ 'private/src/vnext/json-store.php','private/src/vnext/identity.php','private/src/vnext/events.php',
  'private/src/platform/state.php','private/src/platform/service.php','private/src/platform/modules.php',
  'private/src/platform/webhook-read.php',
  'private/src/ui-shell.php','private/src/message-log.php','private/src/message-processor.php',
@@ -35,6 +36,8 @@ foreach($required as $name) {
         throw new RuntimeException('MISSING RELEASE FILE: '.$name);
 }
 foreach(['config.php','runtime/wabridge.sqlite','.env',
+         'private/runtime/vnext/system/identity.json',
+         'private/runtime/vnext/tenants',
          'private/config.php','private/runtime/wabridge.sqlite',
          'private/waxum/releases/waxum-v0.16.1-linux-amd64.tar.gz'] as $forbidden) {
     if(file_exists($path.'/'.$forbidden))
