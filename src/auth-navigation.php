@@ -24,7 +24,7 @@ function auth_safe_return_path(?string $candidate): string {
         'messages','trace','gateway','storage','qr','diagnostics','reports',
         'audit','webhook-events','contacts','templates','schedules','media',
         'automation','developer-tools','security-center','workspaces',
-        'cloud-api','performance','verification','account-admin',
+        'cloud-api','performance','verification','account-admin','team-inbox',
     ];
     if(!in_array($route,$routes,true))return $fallback;
     $target=$route===''?$fallback:'/wabridge/'.$route;
@@ -77,6 +77,7 @@ function auth_destination_label(string $target):string {
         '/wabridge/trace'=>'Message trace',
         '/wabridge/verification'=>'Release verification',
         '/wabridge/account-admin'=>'Multi-account preview',
+        '/wabridge/team-inbox'=>'Team Inbox simulation',
         default=>'your workspace',
     };
 }
