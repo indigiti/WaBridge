@@ -59,6 +59,10 @@ jobs:
         run: php tests/vnext-tenant-tokens.php
       - name: W2 one-time invitation and pending membership activation boundary
         run: php tests/vnext-invitations.php
+      - name: W2 active member role and channel isolation
+        run: php tests/vnext-member-security.php
+      - name: W2 tenant member sign-in, session and revocation over HTTP
+        run: bash tests/vnext-member-http-flow.sh
       - name: W4-W6 authenticated offline studio HTTP journeys
         run: bash tests/vnext-studio-http-flow.sh
       - name: W4 visual builder JavaScript syntax
