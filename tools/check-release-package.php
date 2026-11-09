@@ -11,7 +11,7 @@ $required=[
  'public/assets/fonts/inter-latin-700.woff2',
  'public/assets/fonts/OFL.txt','public/assets/fonts/SOURCE.txt',
  'public/assets/vendor/qrcode.min.js','public/assets/qr-init.js',
- 'public/account-admin.php','public/messages.php','public/platform.php','public/webhook-events.php','public/performance.php','public/verification.php',
+ 'public/api/v2/fixture-event.php','public/account-admin.php','public/messages.php','public/platform.php','public/webhook-events.php','public/performance.php','public/verification.php',
  'public/qr.php','public/diagnostics-view.php','public/reports-view.php',
  'public/diagnostics.php','public/reports.php',
  'public/gateway-settings.php','public/storage-settings.php',
@@ -29,7 +29,7 @@ $required=[
  'private/src/gateway-provider.php','private/src/gateway-settings.php',
  'private/src/storage-services.php','private/src/storage-migration.php',
  'private/src/waxum-provisioning.php',
- 'private/cli/worker.php','private/cli/webhooks.php','private/cli/waxum-supervisor.sh',
+ 'private/cli/vnext-recovery.php','private/cli/worker.php','private/cli/webhooks.php','private/cli/waxum-supervisor.sh',
  'private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz',
  'private/build/release.json',
 ];
