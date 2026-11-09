@@ -22,6 +22,7 @@ php -r 'file_put_contents("config.php","<?php return ".var_export([
   "gateway_token"=>"unused-fixture-only",
   "allowed_sessions"=>["offline-only"],
   "enable_vnext_studio_preview"=>true,
+  "enable_vnext_preview_api"=>true,
   "enable_vnext_pilot_admin"=>true,
   "enable_vnext_inbox_preview"=>false,
   "enable_vnext_fixture_webhook"=>false,
@@ -103,4 +104,32 @@ php -r 'require "src/vnext/json-store.php";require "src/vnext/demo.php";
  if(array_key_exists("outbox",$s)||array_key_exists("api_tokens",$s))exit(3);
  $body=file_get_contents("runtime/vnext/tenants/".$id."/studio.json");
  if(str_contains($body,"api_key")||str_contains($body,"recipient_phone"))exit(4);'
+
+api="$base/wabridge/api/v2/preview.php?module=workflows&tenant=8aab4000-0000-4000-8000-000000000001"
+anon_code="$(curl -sS -o "$tmp/anon-api.json" -w '%{http_code}' "$api")"
+[[ "$anon_code" == "401" ]] || { echo 'Preview API anonymous GET must be 401' >&2;exit 1; }
+api_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
+  -o "$tmp/api.json" -w '%{http_code}' "$api")"
+[[ "$api_code" == "200" ]] && grep -q '"mode":"synthetic"' "$tmp/api.json" || {
+  echo 'Preview API authenticated GET failed' >&2;exit 1;
+}
+csrf_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
+  -X POST -H 'Content-Type: application/json' \
+  --data-binary '{"action":"save","title":"Should not save"}' \
+  -o "$tmp/denied.json" -w '%{http_code}' "$api")"
+[[ "$csrf_code" == "403" ]] || { echo 'Preview API failed to enforce CSRF' >&2;exit 1; }
+json='{"action":"save","title":"API Synthetic Workflow","types":["trigger.fixture_message","action.review","action.stop"]}'
+api_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
+  -X POST -H 'Content-Type: application/json' -H "X-CSRF-Token: $csrf" \
+  --data-binary "$json" -o "$tmp/api-created.json" -w '%{http_code}' "$api")"
+[[ "$api_code" == "200" ]] && grep -q '"mode":"synthetic"' "$tmp/api-created.json" || {
+  echo "Preview API authenticated POST failed: $api_code" >&2;exit 1;
+}
+php -r '$c=require "config.php";$c["enable_vnext_preview_api"]=false;
+  file_put_contents("config.php","<?php return ".var_export($c,true).";");'
+off_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
+  -o /dev/null -w '%{http_code}' "$api")"
+[[ "$off_code" == "404" ]] || { echo 'Preview API must remain default-off' >&2;exit 1; }
+echo 'W2-W6 preview API HTTP: session, CSRF, JSON workflow, and feature flag PASS'
+
 echo 'W4-W6 authenticated HTTP creation: CSRF, private JSON, four modules and no sends PASS'
