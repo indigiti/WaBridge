@@ -11,7 +11,8 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
 require_admin_html_page();
-$identity=new VNextIdentity(new VNextJsonStore());
+$pilotStore=new VNextJsonStore();
+$identity=new VNextIdentity($pilotStore);
 $canProvision=(config()['enable_vnext_pilot_admin']??false)===true;
 $error='';$notice='';
 if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
@@ -19,7 +20,9 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
         assert_csrf();
         if(!$canProvision)throw new RuntimeException('Pilot provisioning is disabled');
         $action=(string)($_POST['action']??'');
-        if($action==='create_organization'){
+        if($action==='seed_demo'){
+            VNextDemo::seedPilot($pilotStore);
+        }elseif($action==='create_organization'){
             $identity->createOrganization((string)($_POST['name']??''));
         }elseif($action==='create_user'){
             $identity->createUser((string)($_POST['email']??''),(string)($_POST['name']??''));
@@ -90,10 +93,32 @@ if(($_GET['created']??'')==='1')$notice='Pending pilot record created. No user a
  </tbody></table></div>
  <p class="panel-help">Pilot records are disabled by design. Pending members cannot sign in and no customer data is stored here.</p>
 </section>
+<section class="glass-panel workspace-section">
+ <div class="panel-heading"><div><span class="eyebrow">PILOT AUTHORIZATION</span><h2>Users and pending memberships</h2></div></div>
+ <div class="table-scroll"><table><thead><tr><th>User</th><th>Invitation state</th><th>Organization</th><th>Role</th><th>Access</th></tr></thead><tbody>
+ <?php foreach($pilot['users'] as $user): ?>
+ <?php $members=array_values(array_filter($pilot['memberships'],static fn(array $m):bool=>$m['user_id']===$user['id'])); ?>
+ <?php if(!$members): ?>
+ <tr><td><?= escape($user['name']) ?></td><td><?= escape($user['status']) ?></td><td>Not assigned</td><td>—</td><td>Disabled</td></tr>
+ <?php else: foreach($members as $member): ?>
+ <?php $orgName='Unknown tenant';foreach($pilot['organizations'] as $org)if($org['id']===$member['tenant_id'])$orgName=$org['name']; ?>
+ <tr><td><?= escape($user['name']) ?></td><td><?= escape($user['status']) ?></td>
+ <td><?= escape($orgName) ?></td><td><?= escape($member['role']) ?></td><td><?= escape($member['status']) ?></td></tr>
+ <?php endforeach;endif; ?>
+ <?php endforeach; ?>
+ <?php if(!$pilot['users']):?><tr><td colspan="5" class="empty-cell">No pilot users. Synthetic team counts above are illustrative.</td></tr><?php endif; ?>
+ </tbody></table></div>
+</section>
 <?php if($canProvision): ?>
 <section class="glass-panel workspace-section">
  <div class="panel-heading"><div><span class="eyebrow">OPERATOR ONLY</span><h2>Create pending pilot records</h2></div></div>
  <p class="panel-help">Creates only disabled organizations and invitation-only users. This does not send invitations or connect live channels.</p>
+ <?php if(!$pilot['organizations']&&!$pilot['users']&&!$pilot['memberships']): ?>
+ <form method="post" class="platform-form-grid">
+ <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="seed_demo">
+ <div class="platform-button-row"><button type="submit" class="button button-primary">Seed three synthetic pilot accounts</button></div>
+ </form>
+ <?php endif; ?>
  <form method="post" class="platform-form-grid">
  <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>"><input type="hidden" name="action" value="create_organization">
  <div class="field"><label>Organization name<input name="name" maxlength="100" required></label></div>
