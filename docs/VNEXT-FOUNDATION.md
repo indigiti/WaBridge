@@ -42,7 +42,7 @@
 4. Confirm no pilot account activation, campaign sends, AI auto-replies or real WhatsApp connections are available.
 5. For isolated testing only, enable `enable_vnext_pilot_admin` in private stage config, use **Seed** once, and verify all seeded records remain disabled/pending.
 6. For HMAC fixture simulation only, additionally set `enable_vnext_fixture_webhook` and a strong private `vnext_fixture_webhook_secret`. Never reuse a production gateway secret.
-7. Run `php tests/vnext-foundation.php` and `php tests/vnext-integration.php` in CI isolated workspaces. The existing `tests/auth-browser-flow.sh` verifies the real account preview route and signed-out redirect.
+7. Run `php tests/vnext-foundation.php`, `php tests/vnext-integration.php` and `bash tests/vnext-http-flow.sh` in isolated CI workspaces. The HTTP test proves real signed POST acceptance, replay rejection, unknown-channel rejection, payload minimization and default-off behavior. The existing `tests/auth-browser-flow.sh` verifies the authenticated account preview and signed-out redirect.
 8. Validate the DigiOps package includes new `private/src/vnext/` modules and `public/account-admin.php` while excluding `runtime/`, `config.php`, test state and credentials.
 
 ## Not yet production certified
