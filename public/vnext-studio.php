@@ -108,6 +108,9 @@ try {
 }catch(Throwable $e) {
     $records=[];$unseeded=true;
 }
+$persistedCount=count($records);
+$staticSamples=$persistedCount===0;
+if($staticSamples)$records=VNextDemo::studioExamples($module);
 $info=$modules[$module];
 ?>
 <!doctype html><html lang="en"><head>
@@ -138,7 +141,7 @@ $info=$modules[$module];
  <?php if($unseeded):?><p class="panel-help">This module has no private synthetic pilot identity yet. Use Multi-account preview to seed fictional organizations; existing static examples remain visible in the other console pages.</p><?php endif; ?>
 </section>
 <section class="stats-grid log-stats workspace-section">
- <article class="stat-card"><p class="stat-label">Saved demo items</p><div class="stat-value"><?= count($records) ?></div><p class="stat-foot">Isolated JSON per tenant</p></article>
+ <article class="stat-card"><p class="stat-label">Saved pilot records</p><div class="stat-value"><?= $persistedCount ?></div><p class="stat-foot">Isolated JSON per tenant</p></article>
  <article class="stat-card"><p class="stat-label">Live provider calls</p><div class="stat-value">0</div><p class="stat-foot">No outbound integration</p></article>
  <article class="stat-card"><p class="stat-label">Automatic replies</p><div class="stat-value">Off</div><p class="stat-foot">Human review only</p></article>
 </section>
@@ -223,6 +226,7 @@ $info=$modules[$module];
 <?php endif; ?>
 <section class="glass-panel workspace-section">
  <div class="panel-heading"><div><span class="eyebrow">TENANT RECORDS</span><h2>Review and simulate</h2></div><span class="environment-chip">No live execution</span></div>
+ <?php if($staticSamples):?><p class="panel-help">The example below is a static, fictional record. It is not saved or executable. Seed a pilot to create editable versions.</p><?php endif; ?>
  <?php foreach($records as $record): ?>
  <article class="vnext-studio-record">
  <div class="panel-heading"><div><h3><?= escape((string)($record['title']??$record['topic']??'Demo record')) ?></h3>
@@ -241,7 +245,7 @@ $info=$modules[$module];
  <?php elseif($module==='flows-studio'): ?>
  <p class="panel-help">Version <?= (int)$record['version'] ?> · <?= count($record['fields']) ?> sample fields · Provider published: No</p>
  <?php endif; ?>
- <?php if($enabled): ?>
+ <?php if($enabled&&!$staticSamples): ?>
  <div class="vnext-studio-actions">
  <?php
  $actions=match($module) {
