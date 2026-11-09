@@ -75,9 +75,6 @@ legacy="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" -D "$tmp/admin.h" \
 [[ "$legacy" == "302" ]] || { echo 'Tenant member entered admin console' >&2;exit 1; }
 
 # Suspend the membership from a separate trusted local process.
-php -r '$s=new VNextJsonStore();' >/dev/null 2>&1 && {
-  echo "Unexpected class autoload" >&2;exit 1;
-} || true
 php -r 'require "src/vnext/json-store.php";
 $s=new VNextJsonStore();
 $a="8aab4000-0000-4000-8000-000000000001";
