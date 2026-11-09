@@ -59,12 +59,29 @@ try {
         'threads'=>[],'team'=>[],'seeded'=>false];
     $error='Synthetic pilot account not seeded. Seed from Multi-account preview first.';
 }
+// The read-only page works even without seeded runtime: show fictional
+// records from code, never falling back to legacy customer message stores.
+$staticThreads=[];
+if(!$overview['seeded']) {
+    $index=array_search($tenantId,$allowedIds,true);
+    $fixtureChannel=sprintf('bb660000-0000-4000-8000-%012d',(int)$index+1);
+    $staticThreads=VNextInbox::defaultThreads($tenantId,$fixtureChannel);
+    $overview['threads']=array_map(static fn(array $row):array=>[
+        'id'=>$row['id'], 'subject'=>$row['subject'],
+        'contact_label'=>$row['contact_label'], 'state'=>$row['state'],
+        'version'=>$row['version'], 'assignee_id'=>null,
+        'message_count'=>count($row['messages']), 'note_count'=>0,
+    ],array_values($staticThreads));
+}
 $activeId=(string)($_GET['thread']??'');
 $selected=null;
 if(VNextJsonStore::uuid($activeId)) {
     try{$selected=$inbox->detail($tenantId,$activeId);}catch(Throwable $e){$selected=null;}
 }
-if($selected===null && $overview['threads']) {
+if(!$overview['seeded']) {
+    $selected=$staticThreads[$activeId]??null;
+    if($selected===null&&$staticThreads)$selected=reset($staticThreads);
+}elseif($selected===null && $overview['threads']) {
     $selected=$inbox->detail($tenantId,$overview['threads'][0]['id']);
 }
 $subject=(string)($overview['tenant']['name']??'Fictional Demo');
@@ -93,7 +110,7 @@ $subject=(string)($overview['tenant']['name']??'Fictional Demo');
   <?php endforeach; ?>
  </nav>
  <?php if(!$overview['seeded']): ?>
- <p class="panel-help">No conversation records exist in this synthetic account. The demo directory in Multi-account admin is a static preview; persisted test conversations are seeded explicitly.</p>
+ <p class="panel-help">The three conversations below are static fictional examples. To enable saved assignments and notes, first seed the pilot identity from Multi-account admin, then seed this tenant inbox.</p>
  <?php if($allowChanges):?>
  <form method="post" class="platform-form-grid">
  <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
@@ -130,7 +147,7 @@ $subject=(string)($overview['tenant']['name']??'Fictional Demo');
  <?php foreach($selected['notes'] as $note): ?>
  <p class="panel-help"><?= escape($note['text']) ?> · <?= escape($note['by']) ?></p>
  <?php endforeach; ?>
- <?php if($allowChanges): ?>
+ <?php if($allowChanges && $overview['seeded']): ?>
  <form method="post" class="platform-form-grid">
  <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
  <input type="hidden" name="action" value="state">
