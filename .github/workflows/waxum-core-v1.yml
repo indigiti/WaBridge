@@ -1,0 +1,175 @@
+name: Waxum Core v1 — experimental headless size and parity
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/waxum-core-v1.yml'
+      - 'tools/waxum-core-v1.py'
+      - 'tools/smoke-waxum-core-v1.py'
+      - 'tools/compare-waxum-binaries.py'
+      - 'tests/test_waxum_core_v1.py'
+      - 'tests/test_waxum_lite_metrics.py'
+      - 'docs/WAXUM-CORE-V1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: waxum-core-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  patch-unit-tests:
+    name: Source-patch and size-gate regression tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p 'test_waxum*.py' -v
+      - run: python3 -m py_compile tools/waxum-core-v1.py tools/compare-waxum-binaries.py tools/smoke-waxum-core-v1.py
+
+  headless-build:
+    name: Pinned Waxum full-feature check and headless benchmark
+    runs-on: ubuntu-24.04
+    needs: patch-unit-tests
+    timeout-minutes: 120
+    container:
+      image: ubuntu:20.04
+      options: --user root
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      RUSTFLAGS: '-C target-cpu=x86-64'
+      CARGO_BUILD_JOBS: '3'
+      CARGO_NET_RETRY: '4'
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+    steps:
+      - name: Install Cloudways ABI-compatible build tools
+        run: |
+          set -eu
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc g++ make pkg-config cmake libssl-dev libsqlite3-dev clang llvm binutils perl python3 file gzip
+          test "$(ldd --version | head -1 | grep -o '[0-9]\+\.[0-9]\+$')" = '2.31'
+
+      - uses: actions/checkout@v4
+        with:
+          path: wabridge
+
+      - name: Fetch verified immutable full Waxum baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: waxum-cloudways-glibc231-amd64
+          run-id: 41712571137
+          repository: indigiti/WaBridge
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: full-baseline
+
+      - name: Verify baseline SHA-256 and extract actual ELF
+        run: |
+          set -eu
+          echo 'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e  full-baseline/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz' | sha256sum -c -
+          grep -qx 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b' full-baseline/provenance.txt
+          grep -qx 'MAX_GLIBC=2.31' full-baseline/provenance.txt
+          mkdir -p full out
+          tar --no-same-owner --no-same-permissions -xzf full-baseline/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz -C full waxum
+          file full/waxum | grep -q 'ELF 64-bit.*x86-64'
+
+      - name: Fetch and SHA-pin Waxum source
+        run: |
+          set -eu
+          git clone --depth 1 --branch v0.16.1 https://github.com/imtaqin/waxum.git waxum-src
+          test "$(git -C waxum-src rev-parse HEAD)" = '851bedf3189bda742433ef57bc06e75be590860b'
+          git -C waxum-src rev-parse HEAD > out/upstream-commit.txt
+
+      - name: Apply drift-safe Core v1 source reuse and headless feature gates
+        run: |
+          set -eu
+          python3 wabridge/tools/waxum-core-v1.py --source waxum-src
+          git -C waxum-src diff -- Cargo.toml src/main.rs src/lib.rs src/state.rs src/api/mod.rs src/middleware/jwt.rs src/console/handlers.rs src/api/web/ > out/source-patch.diff
+          test -s out/source-patch.diff
+          ! grep -q 'data.clone(),' waxum-src/src/api/shared/messages/handlers/media.rs
+          test "$(grep -c 'let media_len = data.len();' waxum-src/src/api/shared/messages/handlers/media.rs)" = '5'
+          grep -q 'pub mod event_summary;' waxum-src/src/lib.rs
+          grep -q 'default = \["embedded-console", "swagger-ui"\]' waxum-src/Cargo.toml
+
+      - name: Install compatible pinned Rust nightly
+        run: |
+          curl --fail --location --silent --show-error --retry 3 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly-2026-04-05
+          "$HOME/.cargo/bin/rustc" --version | tee out/rust-version.txt
+
+      - name: Verify upstream-compatible full feature compilation
+        working-directory: waxum-src
+        run: |
+          "$HOME/.cargo/bin/cargo" check --all-features --lib --bin waxum
+
+      - name: Build headless Rust gateway without console/Swagger
+        working-directory: waxum-src
+        run: |
+          "$HOME/.cargo/bin/cargo" build --release --no-default-features
+          test -s target/release/waxum
+
+      - name: Validate Core event summary tests under headless profile
+        working-directory: waxum-src
+        run: '"$HOME/.cargo/bin/cargo" test --release --lib --no-default-features event_summary'
+
+      - name: Cloudways ABI, architecture, CLI and dependency report
+        working-directory: waxum-src
+        run: |
+          set -eu
+          file target/release/waxum | grep -q 'ELF 64-bit.*x86-64'
+          readelf -W --version-info target/release/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > ../out/glibc-symbols.txt
+          test -s ../out/glibc-symbols.txt
+          test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 ../out/glibc-symbols.txt)" | sort -V | tail -1)" = 'GLIBC_2.31'
+          target/release/waxum --help > ../out/cli-help.txt
+          grep -q 'WhatsApp REST API Gateway' ../out/cli-help.txt
+          readelf -d target/release/waxum | grep NEEDED > ../out/linked-libraries.txt
+          "$HOME/.cargo/bin/cargo" tree --no-default-features -e normal > ../out/headless-dependencies.txt
+
+      - name: Offline loopback API, auth, headless routes and idle resource smoke
+        run: |
+          set -eu
+          chmod +x full/waxum waxum-src/target/release/waxum
+          python3 wabridge/tools/smoke-waxum-core-v1.py \
+            --full full/waxum --candidate waxum-src/target/release/waxum \
+            --json-out out/offline-smoke.json --markdown-out out/offline-smoke.md
+          cat out/offline-smoke.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Measure headless Core against exact production executable
+        run: |
+          python3 wabridge/tools/compare-waxum-binaries.py \
+            --full full/waxum --lite waxum-src/target/release/waxum \
+            --min-raw-savings-pct 5 \
+            --json-out out/size-evidence.json --markdown-out out/size-evidence.md
+          cat out/size-evidence.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package isolated experimental candidate and provenance
+        run: |
+          set -eu
+          tar -C waxum-src/target/release -czf out/waxum-core-v1-headless-glibc231-amd64.tar.gz waxum
+          sha256sum out/waxum-core-v1-headless-glibc231-amd64.tar.gz > out/archive-sha256.txt
+          {
+            echo 'PRODUCTION_APPROVED=false'
+            echo 'NEVER_DEPLOY_AUTOMATICALLY=true'
+            echo 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b'
+            echo 'FULL_BASELINE_RUN=41712571137'
+            echo 'FULL_BASELINE_SHA256=f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+            echo 'BUILD_PROFILE=no-default-features (headless)'
+            echo 'DEFAULT_BUILD_PRESERVES=embedded-console,swagger-ui'
+            echo 'GLIBC_MAX=2.31'
+            echo 'REAL_DEVICE_DELIVERY_VERIFIED=false'
+          } > out/provenance.txt
+
+      - name: Publish size and review artifact, never a DigiOps release
+        uses: actions/upload-artifact@v4
+        with:
+          name: waxum-core-v1-review-only-never-deploy
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Enforce minimum measurable savings only after retaining evidence
+        run: |
+          python3 wabridge/tools/compare-waxum-binaries.py \
+            --full full/waxum --lite waxum-src/target/release/waxum \
+            --min-raw-savings-pct 5 --enforce
