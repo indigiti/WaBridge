@@ -46,7 +46,9 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         'storage'=>'Storage settings','qr'=>'QR pairing','audit'=>'Audit log','trace'=>'Message trace',
         'contacts'=>'Contacts','templates'=>'Templates','schedules'=>'Schedules','media'=>'Media messages',
         'automation'=>'Automation','developer-tools'=>'API tools','security-center'=>'Security',
-        'workspaces'=>'Workspaces','cloud-api'=>'Official Cloud API','account-admin'=>'Multi-account preview','webhook-events'=>'Webhook events'
+        'workspaces'=>'Workspaces','cloud-api'=>'Official Cloud API','account-admin'=>'Multi-account preview','team-inbox'=>'Team Inbox · Simulation','automation-studio'=>'Visual Automation Studio',
+        'campaign-manager'=>'Campaign Manager · Demo','ai-assistant'=>'AI Review Studio',
+        'flows-studio'=>'Flows Studio · Demo','webhook-events'=>'Webhook events'
     ];
     if(!isset($pageLabels[$page]))throw new InvalidArgumentException('Unknown console page');
     if(!admin_authenticated())throw new RuntimeException('Console requires administrator authentication');
@@ -63,6 +65,7 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         ['devices','/wabridge/devices','devices'],
         ['messaging','/wabridge/messaging','messaging'],
         ['messages','/wabridge/messages','messages'],
+        ['team-inbox','/wabridge/team-inbox','messages'],
         ['media','/wabridge/media','media'],
       ],
       'Contacts & Scheduling'=>[
@@ -70,7 +73,13 @@ function ui_shell_start(string $page, ?bool $gatewayReady=null): void {
         ['templates','/wabridge/templates','templates'],
         ['schedules','/wabridge/schedules','schedules'],
       ],
-      'Automation'=>[['automation','/wabridge/automation','automation']],
+      'Automation'=>[
+        ['automation','/wabridge/automation','automation'],
+        ['automation-studio','/wabridge/automation-studio','automation'],
+        ['campaign-manager','/wabridge/campaign-manager','templates'],
+        ['ai-assistant','/wabridge/ai-assistant','automation'],
+        ['flows-studio','/wabridge/flows-studio','workspaces'],
+      ],
       'Developer'=>[
         ['api-applications','/wabridge/api-applications','api-applications'],
         ['developer-tools','/wabridge/developer-tools','developer-tools'],

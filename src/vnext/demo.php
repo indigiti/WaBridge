@@ -75,4 +75,50 @@ final class VNextDemo {
             return ['seeded'=>true,'organizations'=>count($items['organizations'])];
         });
     }
+
+    /**
+     * Render-only static examples. These are NOT persisted, cannot be
+     * approved, and never feed the live provider or send queue.
+     */
+    public static function studioExamples(string $module):array {
+        $id='cc880000-0000-4000-8000-000000000001';
+        return match($module){
+            'automation-studio'=>[[
+                'id'=>$id,'title'=>'Example · Enquiry routing','status'=>'example_only',
+                'version'=>1,'published_versions'=>[],
+                'nodes'=>[
+                    ['id'=>'n1','type'=>'trigger.fixture_message','label'=>'Synthetic inbound message','next'=>'n2'],
+                    ['id'=>'n2','type'=>'condition.sample_consent','label'=>'Check fictional consent','next'=>'n3'],
+                    ['id'=>'n3','type'=>'action.assign_demo','label'=>'Suggest team assignment','next'=>'n4'],
+                    ['id'=>'n4','type'=>'action.review','label'=>'Queue human review','next'=>'n5'],
+                    ['id'=>'n5','type'=>'action.stop','label'=>'End workflow','next'=>null],
+                ],
+            ]],
+            'campaign-manager'=>[[
+                'id'=>$id,'title'=>'Example · Opt-in test audience',
+                'state'=>'example_only','template'=>'sample_update',
+                'audience'=>'sample_all','version'=>1,'preview'=>[
+                    'total'=>4,'eligible'=>2,'suppressed'=>2
+                ],'live_enabled'=>false,
+            ]],
+            'ai-assistant'=>[[
+                'id'=>$id,'topic'=>'support','state'=>'example_only',
+                'text'=>'Suggested draft: Fictional support requests must be assigned to a human support team.',
+                'source'=>'Demo support policy','language'=>'en',
+                'auto_reply_enabled'=>false,'provider_requests'=>0,
+            ]],
+            'flows-studio'=>[[
+                'id'=>$id,'title'=>'Example · Enquiry qualification',
+                'state'=>'example_only','version'=>1,
+                'fields'=>[
+                    ['id'=>'interest','label'=>'Area of interest',
+                        'choices'=>['Product information','Service information']],
+                    ['id'=>'priority','label'=>'Priority',
+                        'choices'=>['General','Follow-up requested']],
+                ],
+                'provider_published'=>false,
+            ]],
+            default=>throw new InvalidArgumentException('Unknown studio example'),
+        };
+    }
 }

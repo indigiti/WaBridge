@@ -75,4 +75,26 @@ if grep -q 'name="action" value="create_organization"' "$tmp/account.html"; then
   echo "Provisioning form must be disabled by default" >&2; exit 1
 fi
 echo 'Anonymous account deep link → styled sign-in; authenticated synthetic read-only preview: PASS'
+curl -sS -D "$tmp/inbox-anon.h" -o /dev/null \
+  "$base/wabridge/team-inbox"
+grep -qE '^HTTP/1.1 302' "$tmp/inbox-anon.h"
+grep -qiF 'Location: /wabridge/sign-in?return=%2Fwabridge%2Fteam-inbox' "$tmp/inbox-anon.h"
+curl -sS -c "$tmp/cookies" -b "$tmp/cookies" "$base/wabridge/team-inbox" > "$tmp/inbox.html"
+grep -q 'Shared Team Inbox' "$tmp/inbox.html"
+grep -q 'Simulation only' "$tmp/inbox.html"
+if grep -q 'name="action" value="assign"' "$tmp/inbox.html"; then
+  echo 'Offline Inbox editing must be disabled by default' >&2; exit 1
+fi
+echo 'W3 browser: anonymous redirect, authenticated fictional inbox and read-only default: PASS'
+for page in automation-studio campaign-manager ai-assistant flows-studio; do
+  curl -sS -D "$tmp/studio-anon.h" -o /dev/null "$base/wabridge/$page"
+  grep -qE '^HTTP/1.1 302' "$tmp/studio-anon.h"
+  grep -qiF "Location: /wabridge/sign-in?return=%2Fwabridge%2F$page" "$tmp/studio-anon.h"
+  curl -sS -c "$tmp/cookies" -b "$tmp/cookies" "$base/wabridge/$page" > "$tmp/studio.html"
+  grep -q 'Safe simulation only' "$tmp/studio.html"
+  if grep -q 'name="action" value="create"' "$tmp/studio.html"; then
+    echo 'W4-W6 write forms must default to disabled' >&2; exit 1
+  fi
+done
+echo 'W4-W6 browser: all studio deep links authenticate and default to read-only: PASS'
 echo 'Anonymous Media deep link → styled sign-in → authenticated Media: PASS'
