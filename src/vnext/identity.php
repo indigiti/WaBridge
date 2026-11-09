@@ -105,6 +105,31 @@ final class VNextIdentity {
             });
     }
 
+
+    /** Allowlisted administrative pilot projection; excludes auth secrets and messages. */
+    public function adminPreview(): array {
+        return $this->store->read('system','identity',static function(array $items):array {
+            $organizations=[];
+            foreach(($items['organizations']??[]) as $row){
+                $organizations[]=['id'=>(string)$row['id'],'name'=>(string)$row['name'],
+                    'status'=>(string)$row['status'],'version'=>(int)($row['version']??1)];
+            }
+            $users=[];
+            foreach(($items['users']??[]) as $row){
+                $users[]=['id'=>(string)$row['id'],'name'=>(string)$row['name'],
+                    'email'=>(string)$row['email'],'status'=>(string)$row['status']];
+            }
+            $members=[];
+            foreach(($items['memberships']??[]) as $row){
+                $members[]=['tenant_id'=>(string)$row['tenant_id'],
+                    'user_id'=>(string)$row['user_id'],'role'=>(string)$row['role'],
+                    'status'=>(string)$row['status']];
+            }
+            return ['organizations'=>$organizations,'users'=>$users,'memberships'=>$members,
+                'channels'=>count($items['channels']??[])];
+        });
+    }
+
     public function snapshot(): array {
         return $this->store->read('system','identity',static function(array $items):array {
             return ['organizations'=>count($items['organizations']??[]),
