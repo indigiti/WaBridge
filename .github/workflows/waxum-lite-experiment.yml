@@ -1,86 +1,162 @@
-name: Experimental Waxum Lite (never auto-deploy)
+name: Experimental Waxum Lite — evidence gates (never auto-deploy)
+
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/waxum-lite-experiment.yml'
+      - 'tools/compare-waxum-binaries.py'
+      - 'tests/test_waxum_lite_metrics.py'
+      - 'docs/WAXUM-LITE-ACCEPTANCE.md'
   push:
     branches: [main]
-    paths: [.github/workflows/waxum-lite-experiment.yml]
+    paths:
+      - '.github/workflows/waxum-lite-experiment.yml'
+      - 'tools/compare-waxum-binaries.py'
+      - 'tests/test_waxum_lite_metrics.py'
+      - 'docs/WAXUM-LITE-ACCEPTANCE.md'
   workflow_dispatch:
+
 permissions:
   contents: read
   actions: read
+
+concurrency:
+  group: waxum-lite-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lite:
+  evidence-tests:
+    name: Test benchmark size gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 100
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p 'test_waxum_lite_metrics.py' -v
+
+  lite:
+    name: Build pinned Lite and compare with production baseline
+    needs: evidence-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
     container:
       image: ubuntu:20.04
       options: --user root
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      RUSTFLAGS: '-C target-cpu=x86-64'
+      CARGO_BUILD_JOBS: '3'
+      CARGO_NET_RETRY: '4'
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
     steps:
-      - name: Build prerequisites in glibc 2.31 container
+      - name: Install pinned-ABI build tooling
         run: |
-          export DEBIAN_FRONTEND=noninteractive
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl git gcc g++ make pkg-config cmake libssl-dev libsqlite3-dev clang llvm binutils perl python3 file
-          ldd --version | head -1
+          apt-get install -y --no-install-recommends ca-certificates curl git gcc g++ make pkg-config cmake libssl-dev libsqlite3-dev clang llvm binutils perl python3 file gzip
           test "$(ldd --version | head -1 | grep -o '[0-9]\+\.[0-9]\+$')" = '2.31'
-      - name: Verify Waxum v0.16.1 source
+
+      - uses: actions/checkout@v4
+        with:
+          path: wabridge
+
+      - name: Download pinned full Waxum compatibility baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: waxum-cloudways-glibc231-amd64
+          run-id: 41712571137
+          repository: indigiti/WaBridge
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: full-baseline
+
+      - name: Verify archive provenance and digest; extract full binary
+        run: |
+          set -eu
+          echo 'f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e  full-baseline/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz' | sha256sum --check
+          grep -qx 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b' full-baseline/provenance.txt
+          grep -qx 'MAX_GLIBC=2.31' full-baseline/provenance.txt
+          mkdir -p full
+          tar --no-same-owner --no-same-permissions -xzf full-baseline/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz -C full waxum
+          file full/waxum | grep -q 'ELF 64-bit.*x86-64'
+          test -s full/waxum
+
+      - name: Fetch and verify exact upstream Waxum source
         run: |
           git clone --depth 1 --branch v0.16.1 https://github.com/imtaqin/waxum.git waxum-src
           test "$(git -C waxum-src rev-parse HEAD)" = '851bedf3189bda742433ef57bc06e75be590860b'
-      - name: Install pinned toolchain
-        run: |
-          curl --fail --silent --show-error --location --retry 3 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly-2026-04-05
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - name: Disable unused full native WhatsApp VoIP relay and native opus
+
+      - name: Disable native VoIP relay + Opus; retain MLOW codec and messaging
         working-directory: waxum-src
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          manifest=Path('Cargo.toml')
-          raw=manifest.read_text()
-          before='default-features = true, features = ["voip", "tracing"]'
-          after='default-features = false, features = ["sqlite-storage", "sqlite-storage-bundled", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal", "voip-encoded", "tracing"]'
-          if raw.count(before)!=1: raise SystemExit('Unexpected upstream manifest, aborting')
-          manifest.write_text(raw.replace(before,after))
-          print("Experimental: disable native VoIP transport and libopus; preserve encoded-call API and core QR/messaging.")
+          path = Path("Cargo.toml")
+          original = path.read_text()
+          old = 'default-features = true, features = ["voip", "tracing"]'
+          new = 'default-features = false, features = ["sqlite-storage", "sqlite-storage-bundled", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal", "voip-encoded", "voip-mlow", "tracing"]'
+          if original.count(old) != 1:
+              raise SystemExit("Unexpected upstream Cargo.toml; refusing to change features")
+          path.write_text(original.replace(old, new))
           PY
-      - name: Compile Lite candidate, not suitable for production yet
+
+      - name: Build experimental Lite using pinned nightly
         working-directory: waxum-src
-        env:
-          CMAKE_POLICY_VERSION_MINIMUM: '3.5'
-          CARGO_BUILD_JOBS: '3'
-          CARGO_NET_RETRY: '4'
-          RUSTFLAGS: '-C target-cpu=x86-64'
         run: |
-          # Feature reduction changes the lockfile; source and upstream git commit remain pinned.
+          curl --fail --location --silent --show-error --retry 3 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly-2026-04-05
           "$HOME/.cargo/bin/cargo" build --release
-          test -f target/release/waxum
-      - name: Verify Cloudways ELF ABI and minimum REST baseline
+          test -s target/release/waxum
+
+      - name: Audit Lite executable, glibc and CLI surface
         working-directory: waxum-src
         run: |
+          set -eu
           file target/release/waxum | grep -q 'ELF 64-bit.*x86-64'
-          readelf -W --version-info target/release/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > /tmp/lite-glibc-versions
-          test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 /tmp/lite-glibc-versions)" | sort -V | tail -1)" = 'GLIBC_2.31'
+          readelf -W --version-info target/release/waxum | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu > /tmp/lite-glibc
+          test -s /tmp/lite-glibc
+          test "$(printf '%s\n' 'GLIBC_2.31' "$(tail -1 /tmp/lite-glibc)" | sort -V | tail -1)" = 'GLIBC_2.31'
           target/release/waxum --help > /tmp/lite-help.txt
           grep -q 'WhatsApp REST API Gateway' /tmp/lite-help.txt
-          file target/release/waxum
-      - name: Package candidate for manual security and QR regression only
-        working-directory: waxum-src
+          readelf -d target/release/waxum | grep NEEDED > /tmp/lite-needed.txt
+          "$HOME/.cargo/bin/cargo" tree -e normal > /tmp/lite-cargo-tree.txt
+          cp /tmp/lite-glibc /tmp/lite-needed.txt /tmp/lite-help.txt /tmp/lite-cargo-tree.txt ../wabridge/
+
+      - name: Prepare reproducible size and provenance report
         run: |
-          mkdir -p ../out
-          tar -C target/release -czf ../out/waxum-lite-v0.16.1-cloudways-glibc231-amd64.tar.gz waxum
-          sha256sum ../out/*.tar.gz > ../out/checksums.txt
+          set -eu
+          mkdir -p out
+          python3 wabridge/tools/compare-waxum-binaries.py \
+            --full full/waxum --lite waxum-src/target/release/waxum \
+            --json-out out/size-evidence.json --markdown-out out/size-evidence.md \
+            --min-raw-savings-pct 5
+          cat out/size-evidence.md >> "$GITHUB_STEP_SUMMARY"
+          cp wabridge/lite-glibc wabridge/lite-needed.txt wabridge/lite-help.txt wabridge/lite-cargo-tree.txt out/
+          tar -C waxum-src/target/release -czf out/waxum-lite-v0.16.1-cloudways-glibc231-amd64.tar.gz waxum
+          sha256sum out/waxum-lite-*.tar.gz > out/checksums.txt
           {
             echo 'EXPERIMENTAL=true'
+            echo 'PRODUCTION_APPROVED=false'
             echo 'DEPLOYMENT_ALLOWED=false'
+            echo 'LIVE_DEVICE_VERIFIED=false'
+            echo 'UPSTREAM_REPO=imtaqin/waxum'
             echo 'UPSTREAM_COMMIT=851bedf3189bda742433ef57bc06e75be590860b'
-            echo 'GLIBC_MAX=2.31'
-            echo 'REMOVED=full native VoIP relay and libopus'
-            echo 'WARNINGS=Voice calling changes; QR and messaging require actual-device tests'
-          } > ../out/provenance.txt
-          ls -lh target/release/waxum ../out/*.tar.gz
-      - uses: actions/upload-artifact@v4
+            echo 'FULL_BASELINE_RUN=41712571137'
+            echo 'FULL_BASELINE_SHA256=f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e'
+            echo 'BUILD_BASE=ubuntu:20.04'
+            echo 'MAX_GLIBC=2.31'
+            echo 'RUST_TOOLCHAIN=nightly-2026-04-05'
+            echo 'REMOVED=native VoIP relay and native Opus; retained MLOW codec required by HTTP handlers'
+            echo 'WARNING=Never replace stable Rust with this artifact without real-device regression and rollback.'
+          } > out/provenance.txt
+
+      - name: Publish candidate and evidence for manual review only
+        uses: actions/upload-artifact@v4
         with:
-          name: waxum-lite-experimental-never-deploy
+          name: waxum-lite-candidate-review-never-deploy
           path: out/
           retention-days: 14
           if-no-files-found: error
+
+      - name: Enforce binary size gate after preserving evidence
+        run: |
+          python3 wabridge/tools/compare-waxum-binaries.py \
+            --full full/waxum --lite waxum-src/target/release/waxum \
+            --min-raw-savings-pct 5 --enforce
+
