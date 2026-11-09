@@ -17,6 +17,8 @@ jobs:
           test -s public/assets/fonts/inter-latin-400.woff2
       - name: PHP syntax
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+      - name: W4 visual builder JavaScript syntax
+        run: node --check public/assets/vnext-studio.js
       - name: Isolated browser session regression
         run: php tests/auth-session.php
       - name: Same-app redirect validation
