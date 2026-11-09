@@ -22,6 +22,7 @@ $required=[
  'private/src/vnext/channels.php','private/src/vnext/signed-ingress.php','private/src/vnext/recovery.php',
  'private/src/vnext/inbox.php',
  'private/src/vnext/projector.php',
+ 'private/src/vnext/backup.php',
  'private/src/vnext/pilot-guard.php','private/src/vnext/workflows.php',
  'private/src/vnext/campaigns.php','private/src/vnext/assistant.php','private/src/vnext/flows.php',
  'private/src/vnext/outbox.php','private/src/vnext/demo.php',
