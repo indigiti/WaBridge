@@ -120,4 +120,25 @@ must($demo['is_synthetic']===true && $demo['live_sends_enabled']===false,
     'Demo fixture sends disabled');
 must(count($demo['accounts'])===3 && !str_contains(json_encode($demo,JSON_THROW_ON_ERROR),'@'),
     'Demo fixture has no personal contact info');
+
+$demoStore=new VNextJsonStore($root.'/seeded-demo');
+$firstSeed=VNextDemo::seedPilot($demoStore);
+must($firstSeed['seeded'] && $firstSeed['organizations']===3,'Explicit demo seed');
+must(VNextDemo::seedPilot($demoStore)['seeded']===false,'Idempotent synthetic seeding');
+$seedPreview=(new VNextIdentity($demoStore))->adminPreview();
+must(count($seedPreview['organizations'])===3 && count($seedPreview['users'])===12
+    && count($seedPreview['memberships'])===12 && $seedPreview['channels']===4,
+    'Pilot seed matches fictional account counts');
+foreach($seedPreview['organizations'] as $account) {
+    must($account['status']==='pilot_disabled','Seed never activates tenant');
+}
+foreach($seedPreview['memberships'] as $member){
+    must($member['status']==='pending','Seed never activates membership');
+}
+must(!(new VNextIdentity($demoStore))->can($seedPreview['organizations'][0]['id'],
+    $seedPreview['users'][0]['id'],'inbox.read'),'Seeded users cannot access inbox');
+$seedChannel=(new VNextChannels($demoStore))->resolve('fixture','demo_fixture_01');
+must($seedChannel!==null,'Seed channel fixture only');
+mustReject(fn()=>VNextDemo::seedPilot($store),'Never overwrite existing pilot metadata');
+
 echo "W1/W2 HMAC ingress, tenant ownership, event replay/recovery, safe dry-run outbox and demo: PASS\n";
