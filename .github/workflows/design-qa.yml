@@ -15,6 +15,7 @@ on:
       - public/platform.php
       - public/account-admin.php
       - public/team-inbox.php
+      - public/vnext-studio.php
       - public/.htaccess
       - .github/workflows/design-qa.yml
       - tools/build-assets.php
