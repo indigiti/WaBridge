@@ -47,9 +47,20 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
             case 'automation-studio':
                 if($action==='create') {
                     $types=['trigger.fixture_message'];
-                    $condition=(string)($_POST['condition']??'');
-                    if($condition!=='')$types[]=$condition;
-                    $types[]=(string)($_POST['step']??'');
+                    if(isset($_POST['steps'])) {
+                        $steps=$_POST['steps'];
+                        if(!is_array($steps)||count($steps)<1||count($steps)>9)
+                            throw new InvalidArgumentException('Invalid sequence length');
+                        foreach($steps as $type) {
+                            if(!is_string($type))throw new InvalidArgumentException('Invalid node type');
+                            $types[]=$type;
+                        }
+                    }else{
+                        // No-JavaScript fallback still uses server-verified options.
+                        $condition=(string)($_POST['condition']??'');
+                        if($condition!=='')$types[]=$condition;
+                        $types[]=(string)($_POST['step']??'');
+                    }
                     $types[]='action.review';
                     $types[]='action.stop';
                     $workflow->saveDraft($tenantId,(string)($_POST['title']??''),$types);
@@ -103,7 +114,9 @@ $info=$modules[$module];
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>WaBridge — <?= escape($info['title']) ?></title>
-<?php ui_head_assets(); ?></head><body class="dashboard-page">
+<?php ui_head_assets(); ?>
+<?php if($module==='automation-studio'):?><script src="/wabridge/assets/vnext-studio.js?v=<?= escape(ui_asset_version()) ?>" defer></script><?php endif; ?>
+</head><body class="dashboard-page">
 <?php ui_shell_start($module,null); ?>
 <main class="console-main">
 <?php ui_breadcrumb($info['section'],$info['title']); ?>
@@ -143,6 +156,8 @@ $info=$modules[$module];
  <input type="hidden" name="_csrf" value="<?= escape(csrf()) ?>">
  <input type="hidden" name="action" value="create">
  <div class="field"><label>Workflow title<input name="title" maxlength="70" required placeholder="Sample routing flow"></label></div>
+ <div class="vnext-builder" data-vnext-builder aria-label="Editable automation steps"></div>
+ <div class="vnext-fallback">
  <div class="field"><label>Condition<select name="condition">
  <option value="">No condition</option>
  <option value="condition.sample_consent">Check fictional consent</option>
@@ -150,6 +165,7 @@ $info=$modules[$module];
  <div class="field"><label>Next action<select name="step">
  <option value="action.assign_demo">Suggest team assignment</option>
  <option value="action.note_demo">Suggest a preset internal note</option></select></label></div>
+ </div>
  <button class="button button-primary" type="submit">Save visual draft</button>
  </form>
  <?php endif; ?>
