@@ -103,3 +103,16 @@ The PHP checks and DigiOps workflows must run these. The canonical premium visua
 6. **Deployment:** Cloudways/DigiOps remains pinned to the merged \`main\` release until the user explicitly chooses a deployable, fully reviewed artifact; no staging production switch has been performed by PR #10.
 
 **Decision:** The code-first offline feature suite can become testing-complete without a database, but that cannot substitute for provider/device certification or a database/transaction strategy before live multi-tenant operation.
+
+
+## Next code-first increment: separate tenant sign-in + channel RBAC (2026-11-09)
+
+Additional W2 code is implemented after the initial W1-W6 offline suite:
+
+- \`src/vnext/member-policy.php\`: active tenant/user/membership checks and explicit per-channel role permission checks, denying unknown or cross-tenant channels.
+- \`src/vnext/member-auth.php\`: separate tenant session claim, password verification, hashed 15-minute login attempt throttling, idle/absolute session expiry, session ID rotation and live membership revocation checks.
+- \`public/tenant-sign-in.php\` and \`public/tenant-workspace.php\`: feature-flagged read-only member login and authorized-channel summary. No legacy admin access is inherited, and customer message bodies are not loaded.
+- \`tests/vnext-member-security.php\` and \`tests/vnext-member-http-flow.sh\`: fixture-only permission, throttling, CSRF, cookie, role, cross-tenant, legacy-admin-denial and suspend-after-login tests.
+- \`docs/VNEXT-TENANT-ACCESS.md\`: detailed security boundary and exact missing production gates.
+
+**Default:** \`enable_vnext_tenant_login=false\`. No public activation path; neither invitation acceptance nor a tenant role automatically grants access. Real member inbox operations, MFA and audited provisioning remain not yet complete. This is a code-first staging increment only; it has not been merged or deployed via DigiOps.
