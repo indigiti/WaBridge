@@ -127,6 +127,16 @@ api_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
 }
 php -r '$c=require "config.php";$c["enable_vnext_preview_api"]=false;
   file_put_contents("config.php","<?php return ".var_export($c,true).";");'
+# New PHP process is required for a deterministic config/cache reload.
+kill "$pid" >/dev/null 2>&1 || true
+wait "$pid" 2>/dev/null || true
+pid=""
+php -d "session.save_path=$tmp/sessions" -S 127.0.0.1:18751 tests/auth-router.php >"$tmp/php-restart.log" 2>&1 &
+pid=$!
+for i in {1..40}; do
+  if curl -sS --connect-timeout 1 "$base/wabridge/sign-in" > /dev/null 2>&1; then break; fi
+  sleep .1
+done
 off_code="$(curl -sS -c "$tmp/cookies" -b "$tmp/cookies" \
   -o /dev/null -w '%{http_code}' "$api")"
 [[ "$off_code" == "404" ]] || { echo 'Preview API must remain default-off' >&2;exit 1; }
