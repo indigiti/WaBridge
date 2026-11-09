@@ -8,6 +8,11 @@ return [
     // P5 official-provider connection and approved template operations; off until reviewed.
     'enable_official_cloud_connect' => false,
     'enable_ai_drafts' => false,
+    // Staging-only: allow existing authenticated admin to create disabled pilot records.
+    'enable_vnext_pilot_admin' => false,
+    // Staging-only synthetic webhook endpoint. Never enable on production.
+    'enable_vnext_fixture_webhook' => false,
+    'vnext_fixture_webhook_secret' => getenv('WABRIDGE_VNEXT_FIXTURE_SECRET') ?: '',
     'ai_api_key' => getenv('WABRIDGE_AI_API_KEY') ?: '',
     'ai_model' => getenv('WABRIDGE_AI_MODEL') ?: '',
     'gateway_url' => getenv('WABRIDGE_GATEWAY_URL') ?: 'http://127.0.0.1:3451',
