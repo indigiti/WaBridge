@@ -11,7 +11,7 @@ $required=[
  'public/assets/fonts/inter-latin-700.woff2',
  'public/assets/fonts/OFL.txt','public/assets/fonts/SOURCE.txt',
  'public/assets/vendor/qrcode.min.js','public/assets/qr-init.js',
- 'public/api/v2/fixture-event.php','public/account-admin.php','public/team-inbox.php','public/messages.php','public/platform.php','public/webhook-events.php','public/performance.php','public/verification.php',
+ 'public/api/v2/fixture-event.php','public/account-admin.php','public/team-inbox.php','public/vnext-studio.php','public/messages.php','public/platform.php','public/webhook-events.php','public/performance.php','public/verification.php',
  'public/qr.php','public/diagnostics-view.php','public/reports-view.php',
  'public/diagnostics.php','public/reports.php',
  'public/gateway-settings.php','public/storage-settings.php',
@@ -21,6 +21,8 @@ $required=[
  'private/src/vnext/json-store.php','private/src/vnext/identity.php','private/src/vnext/events.php',
  'private/src/vnext/channels.php','private/src/vnext/signed-ingress.php','private/src/vnext/recovery.php',
  'private/src/vnext/inbox.php',
+ 'private/src/vnext/pilot-guard.php','private/src/vnext/workflows.php',
+ 'private/src/vnext/campaigns.php','private/src/vnext/assistant.php','private/src/vnext/flows.php',
  'private/src/vnext/outbox.php','private/src/vnext/demo.php',
  'private/src/platform/state.php','private/src/platform/service.php','private/src/platform/modules.php',
  'private/src/platform/webhook-read.php',
@@ -59,6 +61,8 @@ foreach(['@font-face','.console-hero','.console-overview-grid','.activity-feed',
     if(!str_contains($bundle,$design))
         throw new RuntimeException('Incomplete design v6: '.$design);
 }
+if(!str_contains($bundle,'.vnext-flow-graph'))
+    throw new RuntimeException('Visual workflow graph styles missing');
 if(!str_contains($bundle,'.platform-form-grid'))
     throw new RuntimeException('Product module styles absent from unified premium bundle');
 if(!str_contains($bundle,'.platform-context-link'))
@@ -83,7 +87,63 @@ $layout=(string)file_get_contents($path.'/private/src/ui-shell.php');
 foreach(['function ui_shell_start','function ui_shell_end','/wabridge/performance','/wabridge/verification'] as $fragment)
     if(!str_contains($layout,$fragment))throw new RuntimeException('Shared shell missing '.$fragment);
 $routes=(string)file_get_contents($path.'/public/.htaccess');
-foreach(['^messages/?$','^account-admin/?$','^team-inbox/?$','^gateway/?$','^storage/?$','^qr/?$',
+foreach(['^messages/?,'^storage/?$','^qr/?$',
+         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
+         '^api/diagnostics/?$','^api/reports/?$'] as $route)
+    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
+$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
+                (string)hash_file('sha256',$compat)))
+    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust executable must not be deployed to public HTML');
+echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
+,'^account-admin/?,'^storage/?$','^qr/?$',
+         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
+         '^api/diagnostics/?$','^api/reports/?$'] as $route)
+    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
+$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
+                (string)hash_file('sha256',$compat)))
+    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust executable must not be deployed to public HTML');
+echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
+,'^team-inbox/?,'^storage/?$','^qr/?$',
+         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
+         '^api/diagnostics/?$','^api/reports/?$'] as $route)
+    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
+$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
+                (string)hash_file('sha256',$compat)))
+    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust executable must not be deployed to public HTML');
+echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
+,
+         '^(automation-studio|campaign-manager|ai-assistant|flows-studio)/?,'^storage/?$','^qr/?$',
+         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
+         '^api/diagnostics/?$','^api/reports/?$'] as $route)
+    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
+$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
+                (string)hash_file('sha256',$compat)))
+    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust executable must not be deployed to public HTML');
+echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
+,'^gateway/?,'^storage/?$','^qr/?$',
+         '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
+         '^api/diagnostics/?$','^api/reports/?$'] as $route)
+    if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
+$compat=$path.'/private/waxum/releases/waxum-v0.16.1-cloudways-glibc231-linux-amd64.tar.gz';
+if(!hash_equals('f6e015b58345273893a54d6b1feeacba71cfe8fdc416735bf7f2a93d186d7f8e',
+                (string)hash_file('sha256',$compat)))
+    throw new RuntimeException('Pinned Cloudways-compatible Rust checksum mismatch');
+if(file_exists($path.'/public/waxum'))
+    throw new RuntimeException('Rust executable must not be deployed to public HTML');
+echo "WaBridge DigiOps release validated: one Rust package, one CSS, local Inter, performance and launch checks\n";
+,'^storage/?$','^qr/?$',
          '^diagnostics/?$','^reports/?$','^performance/?$','^verification/?$',
          '^api/diagnostics/?$','^api/reports/?$'] as $route)
     if(!str_contains($routes,$route))throw new RuntimeException('Pretty URL missing '.$route);
