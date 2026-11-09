@@ -59,9 +59,76 @@ final class VNextEventJournal {
                     }
                     return false;
                 }
-                $items[$key]=['event'=>$event,'recorded_at'=>gmdate('c'),'state'=>'recorded'];
+                $items[$key]=['event'=>$event,'recorded_at'=>gmdate('c'),'state'=>'pending','attempts'=>0,'lease_until'=>0,'lease_token'=>null];
                 return true;
             });
+    }
+
+
+    /**
+     * Recoverable, bounded internal metadata processor lease. NEVER use this
+     * contract for provider sends: uncertain remote side effects cannot be
+     * made exactly-once by a local file lock.
+     */
+    public function claim(string $tenantId, ?int $now=null, int $leaseSeconds=30): ?array {
+        if(!VNextJsonStore::uuid($tenantId))throw new InvalidArgumentException('Invalid tenant');
+        $now??=time();
+        if($leaseSeconds<5||$leaseSeconds>300)throw new InvalidArgumentException('Invalid lease');
+        return $this->store->mutate($tenantId,'events',
+            static function(array &$items)use($now,$leaseSeconds):?array {
+                foreach($items as $key=>&$row){
+                    $status=(string)($row['state']??'');
+                    $eligible=in_array($status,['recorded','pending'],true)
+                        || ($status==='leased' && (int)($row['lease_until']??0)<=$now);
+                    if(!$eligible)continue;
+                    $attempts=(int)($row['attempts']??0);
+                    if($attempts>=3){
+                        $row['state']='needs_review';
+                        $row['lease_token']=null;
+                        continue;
+                    }
+                    $token=bin2hex(random_bytes(16));
+                    $row['state']='leased';
+                    $row['attempts']=$attempts+1;
+                    $row['lease_until']=$now+$leaseSeconds;
+                    $row['lease_token']=$token;
+                    return ['event_key'=>$key,'lease_token'=>$token,'event'=>$row['event'],
+                        'attempts'=>$row['attempts']];
+                }
+                return null;
+            });
+    }
+
+    /** A stale worker must never acknowledge a newly claimed lease. */
+    public function acknowledge(string $tenantId,string $eventKey,string $leaseToken): bool {
+        if(!VNextJsonStore::uuid($tenantId)
+           || !preg_match('/\A[a-f0-9]{64}\z/D',$eventKey)
+           || !preg_match('/\A[a-f0-9]{32}\z/D',$leaseToken)){
+            throw new InvalidArgumentException('Invalid lease identity');
+        }
+        return $this->store->mutate($tenantId,'events',
+            static function(array &$items)use($eventKey,$leaseToken):bool {
+                $row=$items[$eventKey]??null;
+                if(!is_array($row)||($row['state']??'')!=='leased'
+                   || !hash_equals((string)($row['lease_token']??''),$leaseToken))return false;
+                $items[$eventKey]['state']='normalized';
+                $items[$eventKey]['lease_token']=null;
+                $items[$eventKey]['lease_until']=0;
+                $items[$eventKey]['normalized_at']=gmdate('c');
+                return true;
+            });
+    }
+
+    public function states(string $tenantId): array {
+        if(!VNextJsonStore::uuid($tenantId))throw new InvalidArgumentException('Invalid tenant');
+        return $this->store->read($tenantId,'events',static function(array $items):array{
+            $counts=['pending'=>0,'leased'=>0,'normalized'=>0,'needs_review'=>0];
+            foreach($items as $item){
+                $state=($item['state']??'')==='recorded'?'pending':(string)($item['state']??'');
+                if(isset($counts[$state]))$counts[$state]++;
+            }
+            return $counts;
+        });
     }
 
     public function count(string $tenantId): int {
